@@ -120,6 +120,7 @@ int Model::init(IReadResFile *file)
 
 #ifdef BETA_GAME_VERSION
 			memcpy(&materialNameOffset[i], DataBuffer + materialMetadataOffset + i * 36, sizeof(BDAEint));
+			memcpy(&materialNameLength, DataBuffer + materialNameOffset[i] - 4, sizeof(int));
 			memcpy(&materialPropertyCount, DataBuffer + materialMetadataOffset + 16 + i * 36, sizeof(int));
 			memcpy(&materialPropertyOffset, DataBuffer + materialMetadataOffset + 20 + i * 36, sizeof(int));
 #else
@@ -134,7 +135,7 @@ int Model::init(IReadResFile *file)
 				int propertyType = 0;
 
 #ifdef BETA_GAME_VERSION
-				memcpy(&propertyType, DataBuffer + materialPropertyOffset[i] + 8 + k * 24, sizeof(int));
+				memcpy(&propertyType, DataBuffer + materialPropertyOffset + 8 + k * 24, sizeof(int));
 #else
 				memcpy(&propertyType, DataBuffer + header->offsetData + 152 + materialMetadataOffset + i * 56 + materialPropertyOffset + 16 + k * 32, sizeof(int));
 #endif
@@ -144,7 +145,7 @@ int Model::init(IReadResFile *file)
 					int offset1, offset2;
 
 #ifdef BETA_GAME_VERSION
-					memcpy(&offset1, DataBuffer + materialPropertyOffset[i] + 20 + k * 24, sizeof(int));
+					memcpy(&offset1, DataBuffer + materialPropertyOffset + 20 + k * 24, sizeof(int));
 					memcpy(&offset2, DataBuffer + offset1, sizeof(int));
 					memcpy(&materialTextureIndex[i], DataBuffer + offset2, sizeof(int));
 #else
@@ -259,12 +260,22 @@ int Model::init(IReadResFile *file)
 
 	int rootNodeCount, nodeTreeDataOffset;
 
+#ifdef BETA_GAME_VERSION
+	memcpy(&rootNodeCount, DataBuffer + nodeTreeMetadataOffset + 8, sizeof(int));
+	memcpy(&nodeTreeDataOffset, DataBuffer + nodeTreeMetadataOffset + 12, sizeof(int));
+#else
 	memcpy(&rootNodeCount, DataBuffer + header->offsetData + 168 + 4 + nodeTreeMetadataOffset + 16, sizeof(int));
 	memcpy(&nodeTreeDataOffset, DataBuffer + header->offsetData + 168 + 4 + nodeTreeMetadataOffset + 20, sizeof(int));
+#endif
 
 	for (int i = 0; i < rootNodeCount; i++)
 	{
+#ifdef BETA_GAME_VERSION
+		int rootNodeDataOffset = nodeTreeDataOffset + i * 80;
+#else
 		int rootNodeDataOffset = header->offsetData + 168 + 4 + nodeTreeMetadataOffset + 20 + nodeTreeDataOffset + i * 96;
+#endif
+
 		parseNodesRecursive(rootNodeDataOffset, -1); // -1 = root node (no parent)
 	}
 
@@ -392,13 +403,26 @@ int Model::init(IReadResFile *file)
 
 		int meshSkinDataOffset;
 
+#ifdef BETA_GAME_VERSION
+		memcpy(&meshSkinDataOffset, DataBuffer + meshSkinMetadataOffset + 8, sizeof(int));
+#else
 		memcpy(&meshSkinDataOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16, sizeof(int));
+#endif
 
 		int bindPoseDataOffset; // bone count * 16 floats (4 x 4 matrix for each bone)
 		int boneCount, boneNamesOffset;
 		int boneInfluenceFloatCount, boneInfluenceDataOffset; // vertex count * (4 bytes for bone indices + maxInfluence floats for bone weights)
 		int maxInfluence;									  // how many bones can influence one vertex
 
+#ifdef BETA_GAME_VERSION
+		memcpy(&bindPoseDataOffset, DataBuffer + meshSkinDataOffset + 4, sizeof(int));
+		memcpy(&bindShapeMatrix, DataBuffer + meshSkinDataOffset + 16, sizeof(glm::mat4));
+		memcpy(&boneCount, DataBuffer + meshSkinDataOffset + 116, sizeof(int));
+		memcpy(&boneNamesOffset, DataBuffer + meshSkinDataOffset + 120, sizeof(int));
+		memcpy(&boneInfluenceFloatCount, DataBuffer + meshSkinDataOffset + 124, sizeof(int));
+		memcpy(&boneInfluenceDataOffset, DataBuffer + meshSkinDataOffset + 128, sizeof(int));
+		memcpy(&maxInfluence, DataBuffer + meshSkinDataOffset + 152, sizeof(int));
+#else
 		memcpy(&bindPoseDataOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 4, sizeof(int));
 		memcpy(&bindShapeMatrix, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 16, sizeof(glm::mat4));
 		memcpy(&boneCount, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 120, sizeof(int));
@@ -406,6 +430,7 @@ int Model::init(IReadResFile *file)
 		memcpy(&boneInfluenceFloatCount, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 128, sizeof(int));
 		memcpy(&boneInfluenceDataOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 136, sizeof(int));
 		memcpy(&maxInfluence, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 176, sizeof(int));
+#endif
 
 		if (maxInfluence < 1 || maxInfluence > 4)
 		{
@@ -428,14 +453,23 @@ int Model::init(IReadResFile *file)
 				BDAEint boneNameOffset;
 				int boneNameLength;
 
+#ifdef BETA_GAME_VERSION
+				memcpy(&boneNameOffset, DataBuffer + boneNamesOffset + i * 4, sizeof(BDAEint));
+#else
 				memcpy(&boneNameOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 124 + boneNamesOffset + i * 8, sizeof(BDAEint));
+#endif
+
 				memcpy(&boneNameLength, DataBuffer + boneNameOffset - 4, sizeof(int));
 
 				boneNames[i] = std::string((DataBuffer + boneNameOffset), boneNameLength);
 
 				LOG("[", i + 1, "] \033[96m", boneNames[i], "\033[0m");
 
+#ifdef BETA_GAME_VERSION
+				memcpy(&bindPoseMatrices[i], DataBuffer + bindPoseDataOffset + i * 64, sizeof(glm::mat4));
+#else
 				memcpy(&bindPoseMatrices[i], DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 4 + bindPoseDataOffset + i * 64, sizeof(glm::mat4));
+#endif
 			}
 		}
 
@@ -493,8 +527,8 @@ void Model::parseNodesRecursive(int nodeOffset, int parentIndex)
 	int name1Length, name2Length, name3Length;
 
 	memcpy(&name1Offset, DataBuffer + nodeOffset, sizeof(BDAEint));
-	memcpy(&name2Offset, DataBuffer + nodeOffset + 8, sizeof(BDAEint));
-	memcpy(&name3Offset, DataBuffer + nodeOffset + 16, sizeof(BDAEint));
+	memcpy(&name2Offset, DataBuffer + nodeOffset + sizeof(BDAEint), sizeof(BDAEint));
+	memcpy(&name3Offset, DataBuffer + nodeOffset + 2 * sizeof(BDAEint), sizeof(BDAEint));
 
 	memcpy(&name1Length, DataBuffer + name1Offset - 4, sizeof(int));
 	memcpy(&name2Length, DataBuffer + name2Offset - 4, sizeof(int));
@@ -513,18 +547,18 @@ void Model::parseNodesRecursive(int nodeOffset, int parentIndex)
 	float scaleX, scaleY, scaleZ;
 	int childrenCount, childrenOffset;
 
-	memcpy(&transX, DataBuffer + nodeOffset + 24, sizeof(float));
-	memcpy(&transY, DataBuffer + nodeOffset + 28, sizeof(float));
-	memcpy(&transZ, DataBuffer + nodeOffset + 32, sizeof(float));
-	memcpy(&rotX, DataBuffer + nodeOffset + 36, sizeof(float));
-	memcpy(&rotY, DataBuffer + nodeOffset + 40, sizeof(float));
-	memcpy(&rotZ, DataBuffer + nodeOffset + 44, sizeof(float));
-	memcpy(&rotW, DataBuffer + nodeOffset + 48, sizeof(float));
-	memcpy(&scaleX, DataBuffer + nodeOffset + 52, sizeof(float));
-	memcpy(&scaleY, DataBuffer + nodeOffset + 56, sizeof(float));
-	memcpy(&scaleZ, DataBuffer + nodeOffset + 60, sizeof(float));
-	memcpy(&childrenCount, DataBuffer + nodeOffset + 68, sizeof(int));
-	memcpy(&childrenOffset, DataBuffer + nodeOffset + 72, sizeof(int));
+	memcpy(&transX, DataBuffer + nodeOffset + 3 * sizeof(BDAEint), sizeof(float));
+	memcpy(&transY, DataBuffer + nodeOffset + 3 * sizeof(BDAEint) + 4, sizeof(float));
+	memcpy(&transZ, DataBuffer + nodeOffset + 3 * sizeof(BDAEint) + 8, sizeof(float));
+	memcpy(&rotX, DataBuffer + nodeOffset + 3 * sizeof(BDAEint) + 12, sizeof(float));
+	memcpy(&rotY, DataBuffer + nodeOffset + 3 * sizeof(BDAEint) + 16, sizeof(float));
+	memcpy(&rotZ, DataBuffer + nodeOffset + 3 * sizeof(BDAEint) + 20, sizeof(float));
+	memcpy(&rotW, DataBuffer + nodeOffset + 3 * sizeof(BDAEint) + 24, sizeof(float));
+	memcpy(&scaleX, DataBuffer + nodeOffset + 3 * sizeof(BDAEint) + 28, sizeof(float));
+	memcpy(&scaleY, DataBuffer + nodeOffset + 3 * sizeof(BDAEint) + 32, sizeof(float));
+	memcpy(&scaleZ, DataBuffer + nodeOffset + 3 * sizeof(BDAEint) + 36, sizeof(float));
+	memcpy(&childrenCount, DataBuffer + nodeOffset + 3 * sizeof(BDAEint) + 44, sizeof(int));
+	memcpy(&childrenOffset, DataBuffer + nodeOffset + 3 * sizeof(BDAEint) + 48, sizeof(int));
 
 	// create new node
 	Node node;
@@ -563,8 +597,17 @@ void Model::parseNodesRecursive(int nodeOffset, int parentIndex)
 
 	if (childrenCount > 0 && childrenOffset > 0)
 	{
+		int childStride;
+
+#ifdef BETA_GAME_VERSION
+		childStride = 80;
+#else
+		childrenOffset += nodeOffset + 72;
+		childStride = 96;
+#endif
+
 		for (int i = 0; i < childrenCount; i++)
-			parseNodesRecursive(nodeOffset + 72 + childrenOffset + i * 96, nodeIndex);
+			parseNodesRecursive(childrenOffset + i * childStride, nodeIndex);
 	}
 }
 

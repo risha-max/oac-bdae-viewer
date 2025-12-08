@@ -216,7 +216,12 @@ void Terrain::loadTileMasks(CZipResReader *masksArchive, int gridX, int gridZ, T
 
 	// mask is a per-pixel value that modulates some effect (like texture blending or shadow intensity)
 	// mask layer file stores these values as 1 byte per pixel, though each value is in range [0, 255]
+#ifdef BETA_GAME_VERSION
+	const int MASK_MAP_RESOLUTION = 512;
+#else
 	const int MASK_MAP_RESOLUTION = 256;
+#endif
+
 	const int expectedFileSize = MASK_MAP_RESOLUTION * MASK_MAP_RESOLUTION;
 
 	char tmpName0[256], tmpName1[256], tmpName2[256];
