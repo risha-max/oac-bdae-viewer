@@ -1,0 +1,2208 @@
+{
+  "file": "oac1osp/data/Effects/equipment/weapon/two_hand/two_hand_staff/staff_07_red.beff",
+  "header": {
+    "size": 1280,
+    "magic": "beff",
+    "version_i32": 8,
+    "sectionCount": 2,
+    "optionA": 0,
+    "emitterCount": 1,
+    "blendHint": 4294967295,
+    "optionB": 6
+  },
+  "strings": [
+    {
+      "offset": 0,
+      "end": 4,
+      "len": 4,
+      "text": "beff"
+    },
+    {
+      "offset": 416,
+      "end": 431,
+      "len": 15,
+      "text": "ball_light4.tga"
+    },
+    {
+      "offset": 524,
+      "end": 528,
+      "len": 4,
+      "text": "333?"
+    },
+    {
+      "offset": 540,
+      "end": 544,
+      "len": 4,
+      "text": "333?"
+    },
+    {
+      "offset": 1056,
+      "end": 1066,
+      "len": 10,
+      "text": "fire06.tga"
+    },
+    {
+      "offset": 1160,
+      "end": 1164,
+      "len": 4,
+      "text": "333?"
+    },
+    {
+      "offset": 1176,
+      "end": 1180,
+      "len": 4,
+      "text": "333?"
+    }
+  ],
+  "texture_strings": [
+    {
+      "offset": 416,
+      "end": 431,
+      "len": 15,
+      "text": "ball_light4.tga"
+    },
+    {
+      "offset": 1056,
+      "end": 1066,
+      "len": 10,
+      "text": "fire06.tga"
+    }
+  ],
+  "blocks": [
+    {
+      "name": "texture_block_0",
+      "start": 384,
+      "end": 1056,
+      "texture": "ball_light4.tga",
+      "texture_offset": 416,
+      "declared_name_len_u32": 16,
+      "numeric": {
+        "start": 384,
+        "end": 1056,
+        "nonzero_u32_count": 60,
+        "nonzero_u32_first": [
+          {
+            "offset": 412,
+            "u32": 16
+          },
+          {
+            "offset": 416,
+            "u32": 1819042146
+          },
+          {
+            "offset": 420,
+            "u32": 1734962271
+          },
+          {
+            "offset": 424,
+            "u32": 775189608
+          },
+          {
+            "offset": 428,
+            "u32": 6383476
+          },
+          {
+            "offset": 432,
+            "u32": 1
+          },
+          {
+            "offset": 448,
+            "u32": 1
+          },
+          {
+            "offset": 464,
+            "u32": 1
+          },
+          {
+            "offset": 480,
+            "u32": 3
+          },
+          {
+            "offset": 496,
+            "u32": 15
+          },
+          {
+            "offset": 500,
+            "u32": 255
+          },
+          {
+            "offset": 504,
+            "u32": 30
+          },
+          {
+            "offset": 512,
+            "u32": 1
+          },
+          {
+            "offset": 524,
+            "u32": 1060320051
+          },
+          {
+            "offset": 528,
+            "u32": 1
+          },
+          {
+            "offset": 540,
+            "u32": 1060320051
+          },
+          {
+            "offset": 544,
+            "u32": 1
+          },
+          {
+            "offset": 556,
+            "u32": 1024391844
+          },
+          {
+            "offset": 560,
+            "u32": 1
+          },
+          {
+            "offset": 572,
+            "u32": 1033061504
+          },
+          {
+            "offset": 576,
+            "u32": 1
+          },
+          {
+            "offset": 588,
+            "u32": 1024391844
+          },
+          {
+            "offset": 592,
+            "u32": 3
+          },
+          {
+            "offset": 604,
+            "u32": 1056964608
+          },
+          {
+            "offset": 608,
+            "u32": 15
+          },
+          {
+            "offset": 612,
+            "u32": 1065353216
+          },
+          {
+            "offset": 616,
+            "u32": 30
+          },
+          {
+            "offset": 620,
+            "u32": 1056964608
+          },
+          {
+            "offset": 624,
+            "u32": 3
+          },
+          {
+            "offset": 636,
+            "u32": 1056964608
+          },
+          {
+            "offset": 640,
+            "u32": 15
+          },
+          {
+            "offset": 644,
+            "u32": 1065353216
+          },
+          {
+            "offset": 648,
+            "u32": 30
+          },
+          {
+            "offset": 652,
+            "u32": 1056964608
+          },
+          {
+            "offset": 680,
+            "u32": 1
+          },
+          {
+            "offset": 688,
+            "u32": 4294967295
+          },
+          {
+            "offset": 696,
+            "u32": 3
+          },
+          {
+            "offset": 720,
+            "u32": 1
+          },
+          {
+            "offset": 736,
+            "u32": 1
+          },
+          {
+            "offset": 752,
+            "u32": 1
+          },
+          {
+            "offset": 768,
+            "u32": 1
+          },
+          {
+            "offset": 784,
+            "u32": 1
+          },
+          {
+            "offset": 800,
+            "u32": 1
+          },
+          {
+            "offset": 816,
+            "u32": 1
+          },
+          {
+            "offset": 832,
+            "u32": 1
+          },
+          {
+            "offset": 848,
+            "u32": 1
+          },
+          {
+            "offset": 864,
+            "u32": 1
+          },
+          {
+            "offset": 880,
+            "u32": 1
+          },
+          {
+            "offset": 892,
+            "u32": 1065353216
+          },
+          {
+            "offset": 896,
+            "u32": 1
+          },
+          {
+            "offset": 912,
+            "u32": 1
+          },
+          {
+            "offset": 928,
+            "u32": 1
+          },
+          {
+            "offset": 944,
+            "u32": 1
+          },
+          {
+            "offset": 960,
+            "u32": 1065353216
+          },
+          {
+            "offset": 972,
+            "u32": 1
+          },
+          {
+            "offset": 976,
+            "u32": 30
+          },
+          {
+            "offset": 988,
+            "u32": 1
+          },
+          {
+            "offset": 1008,
+            "u32": 1086918618
+          },
+          {
+            "offset": 1012,
+            "u32": 100
+          },
+          {
+            "offset": 1052,
+            "u32": 12
+          }
+        ],
+        "float_candidate_count": 14,
+        "float_candidate_first": [
+          {
+            "offset": 524,
+            "f32": 0.7
+          },
+          {
+            "offset": 540,
+            "f32": 0.7
+          },
+          {
+            "offset": 556,
+            "f32": 0.034907
+          },
+          {
+            "offset": 572,
+            "f32": 0.071908
+          },
+          {
+            "offset": 588,
+            "f32": 0.034907
+          },
+          {
+            "offset": 604,
+            "f32": 0.5
+          },
+          {
+            "offset": 612,
+            "f32": 1.0
+          },
+          {
+            "offset": 620,
+            "f32": 0.5
+          },
+          {
+            "offset": 636,
+            "f32": 0.5
+          },
+          {
+            "offset": 644,
+            "f32": 1.0
+          },
+          {
+            "offset": 652,
+            "f32": 0.5
+          },
+          {
+            "offset": 892,
+            "f32": 1.0
+          },
+          {
+            "offset": 960,
+            "f32": 1.0
+          },
+          {
+            "offset": 1008,
+            "f32": 6.283185
+          }
+        ]
+      },
+      "record16_candidates_first": [
+        {
+          "offset": 512,
+          "key": 1,
+          "raw_u32": 1060320051,
+          "value_f32": 0.7,
+          "value_u32": 1060320051
+        },
+        {
+          "offset": 528,
+          "key": 1,
+          "raw_u32": 1060320051,
+          "value_f32": 0.7,
+          "value_u32": 1060320051
+        },
+        {
+          "offset": 544,
+          "key": 1,
+          "raw_u32": 1024391844,
+          "value_f32": 0.034907,
+          "value_u32": 1024391844
+        },
+        {
+          "offset": 560,
+          "key": 1,
+          "raw_u32": 1033061504,
+          "value_f32": 0.071908,
+          "value_u32": 1033061504
+        },
+        {
+          "offset": 576,
+          "key": 1,
+          "raw_u32": 1024391844,
+          "value_f32": 0.034907,
+          "value_u32": 1024391844
+        },
+        {
+          "offset": 592,
+          "key": 3,
+          "raw_u32": 1056964608,
+          "value_f32": 0.5,
+          "value_u32": 1056964608
+        },
+        {
+          "offset": 624,
+          "key": 3,
+          "raw_u32": 1056964608,
+          "value_f32": 0.5,
+          "value_u32": 1056964608
+        },
+        {
+          "offset": 880,
+          "key": 1,
+          "raw_u32": 1065353216,
+          "value_f32": 1.0,
+          "value_u32": 1065353216
+        },
+        {
+          "offset": 960,
+          "key": 1065353216,
+          "raw_u32": 1,
+          "value_f32": null,
+          "value_u32": 1
+        },
+        {
+          "offset": 976,
+          "key": 30,
+          "raw_u32": 1,
+          "value_f32": null,
+          "value_u32": 1
+        }
+      ],
+      "inferred_parameters": {
+        "record16_count": 10,
+        "top_keys": [
+          {
+            "key": 1,
+            "count": 6
+          },
+          {
+            "key": 3,
+            "count": 2
+          },
+          {
+            "key": 1065353216,
+            "count": 1
+          },
+          {
+            "key": 30,
+            "count": 1
+          }
+        ],
+        "size_candidates": [
+          {
+            "offset": 512,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "size-like range, common sprite size range"
+          },
+          {
+            "offset": 528,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "size-like range, common sprite size range"
+          },
+          {
+            "offset": 592,
+            "key": 3,
+            "score": 4.0,
+            "value_f32": 0.5,
+            "value_u32": 1056964608,
+            "why": "size-like range, common sprite size range"
+          },
+          {
+            "offset": 624,
+            "key": 3,
+            "score": 4.0,
+            "value_f32": 0.5,
+            "value_u32": 1056964608,
+            "why": "size-like range, common sprite size range"
+          },
+          {
+            "offset": 880,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 1.0,
+            "value_u32": 1065353216,
+            "why": "size-like range, common sprite size range"
+          },
+          {
+            "offset": 560,
+            "key": 1,
+            "score": 2.0,
+            "value_f32": 0.071908,
+            "value_u32": 1033061504,
+            "why": "size-like range"
+          }
+        ],
+        "life_candidates": [
+          {
+            "offset": 512,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "life-like range, common particle lifetime"
+          },
+          {
+            "offset": 528,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "life-like range, common particle lifetime"
+          },
+          {
+            "offset": 592,
+            "key": 3,
+            "score": 4.0,
+            "value_f32": 0.5,
+            "value_u32": 1056964608,
+            "why": "life-like range, common particle lifetime"
+          },
+          {
+            "offset": 624,
+            "key": 3,
+            "score": 4.0,
+            "value_f32": 0.5,
+            "value_u32": 1056964608,
+            "why": "life-like range, common particle lifetime"
+          },
+          {
+            "offset": 880,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 1.0,
+            "value_u32": 1065353216,
+            "why": "life-like range, common particle lifetime"
+          },
+          {
+            "offset": 544,
+            "key": 1,
+            "score": 2.0,
+            "value_f32": 0.034907,
+            "value_u32": 1024391844,
+            "why": "life-like range"
+          },
+          {
+            "offset": 560,
+            "key": 1,
+            "score": 2.0,
+            "value_f32": 0.071908,
+            "value_u32": 1033061504,
+            "why": "life-like range"
+          },
+          {
+            "offset": 576,
+            "key": 1,
+            "score": 2.0,
+            "value_f32": 0.034907,
+            "value_u32": 1024391844,
+            "why": "life-like range"
+          }
+        ],
+        "speed_candidates": [
+          {
+            "offset": 592,
+            "key": 3,
+            "score": 4.8,
+            "value_f32": 0.5,
+            "value_u32": 1056964608,
+            "why": "speed-like range, common weapon fx velocity, common key id"
+          },
+          {
+            "offset": 624,
+            "key": 3,
+            "score": 4.8,
+            "value_f32": 0.5,
+            "value_u32": 1056964608,
+            "why": "speed-like range, common weapon fx velocity, common key id"
+          },
+          {
+            "offset": 512,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "speed-like range, common weapon fx velocity"
+          },
+          {
+            "offset": 528,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "speed-like range, common weapon fx velocity"
+          },
+          {
+            "offset": 560,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.071908,
+            "value_u32": 1033061504,
+            "why": "speed-like range, common weapon fx velocity"
+          },
+          {
+            "offset": 880,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 1.0,
+            "value_u32": 1065353216,
+            "why": "speed-like range, common weapon fx velocity"
+          },
+          {
+            "offset": 544,
+            "key": 1,
+            "score": 2.0,
+            "value_f32": 0.034907,
+            "value_u32": 1024391844,
+            "why": "speed-like range"
+          },
+          {
+            "offset": 576,
+            "key": 1,
+            "score": 2.0,
+            "value_f32": 0.034907,
+            "value_u32": 1024391844,
+            "why": "speed-like range"
+          }
+        ],
+        "spread_candidates": [
+          {
+            "offset": 512,
+            "key": 1,
+            "score": 4.8,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          },
+          {
+            "offset": 528,
+            "key": 1,
+            "score": 4.8,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          },
+          {
+            "offset": 544,
+            "key": 1,
+            "score": 4.8,
+            "value_f32": 0.034907,
+            "value_u32": 1024391844,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          },
+          {
+            "offset": 560,
+            "key": 1,
+            "score": 4.8,
+            "value_f32": 0.071908,
+            "value_u32": 1033061504,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          },
+          {
+            "offset": 576,
+            "key": 1,
+            "score": 4.8,
+            "value_f32": 0.034907,
+            "value_u32": 1024391844,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          },
+          {
+            "offset": 592,
+            "key": 3,
+            "score": 4.8,
+            "value_f32": 0.5,
+            "value_u32": 1056964608,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          },
+          {
+            "offset": 624,
+            "key": 3,
+            "score": 4.8,
+            "value_f32": 0.5,
+            "value_u32": 1056964608,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          },
+          {
+            "offset": 880,
+            "key": 1,
+            "score": 4.8,
+            "value_f32": 1.0,
+            "value_u32": 1065353216,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          }
+        ],
+        "rate_candidates": [
+          {
+            "offset": 976,
+            "key": 30,
+            "score": 2.5,
+            "value_f32": null,
+            "value_u32": 1,
+            "why": "rate-like integer range"
+          },
+          {
+            "offset": 880,
+            "key": 1,
+            "score": 2.2,
+            "value_f32": 1.0,
+            "value_u32": 1065353216,
+            "why": "rate-like float range, common spawn rate range"
+          },
+          {
+            "offset": 960,
+            "key": 1065353216,
+            "score": 2.0,
+            "value_f32": null,
+            "value_u32": 1,
+            "why": "rate-like integer range"
+          },
+          {
+            "offset": 512,
+            "key": 1,
+            "score": 1.2,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "rate-like float range"
+          },
+          {
+            "offset": 528,
+            "key": 1,
+            "score": 1.2,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "rate-like float range"
+          },
+          {
+            "offset": 592,
+            "key": 3,
+            "score": 1.2,
+            "value_f32": 0.5,
+            "value_u32": 1056964608,
+            "why": "rate-like float range"
+          },
+          {
+            "offset": 624,
+            "key": 3,
+            "score": 1.2,
+            "value_f32": 0.5,
+            "value_u32": 1056964608,
+            "why": "rate-like float range"
+          }
+        ]
+      }
+    },
+    {
+      "name": "texture_block_1",
+      "start": 1024,
+      "end": 1280,
+      "texture": "fire06.tga",
+      "texture_offset": 1056,
+      "declared_name_len_u32": 12,
+      "numeric": {
+        "start": 1024,
+        "end": 1280,
+        "nonzero_u32_count": 26,
+        "nonzero_u32_first": [
+          {
+            "offset": 1052,
+            "u32": 12
+          },
+          {
+            "offset": 1056,
+            "u32": 1701996902
+          },
+          {
+            "offset": 1060,
+            "u32": 1949185584
+          },
+          {
+            "offset": 1064,
+            "u32": 24935
+          },
+          {
+            "offset": 1068,
+            "u32": 1
+          },
+          {
+            "offset": 1084,
+            "u32": 1
+          },
+          {
+            "offset": 1100,
+            "u32": 1
+          },
+          {
+            "offset": 1116,
+            "u32": 3
+          },
+          {
+            "offset": 1132,
+            "u32": 15
+          },
+          {
+            "offset": 1136,
+            "u32": 113
+          },
+          {
+            "offset": 1140,
+            "u32": 30
+          },
+          {
+            "offset": 1148,
+            "u32": 1
+          },
+          {
+            "offset": 1160,
+            "u32": 1060320051
+          },
+          {
+            "offset": 1164,
+            "u32": 1
+          },
+          {
+            "offset": 1176,
+            "u32": 1060320051
+          },
+          {
+            "offset": 1180,
+            "u32": 1
+          },
+          {
+            "offset": 1196,
+            "u32": 1
+          },
+          {
+            "offset": 1212,
+            "u32": 1
+          },
+          {
+            "offset": 1228,
+            "u32": 2
+          },
+          {
+            "offset": 1240,
+            "u32": 1062668861
+          },
+          {
+            "offset": 1244,
+            "u32": 30
+          },
+          {
+            "offset": 1248,
+            "u32": 1073741824
+          },
+          {
+            "offset": 1252,
+            "u32": 2
+          },
+          {
+            "offset": 1264,
+            "u32": 1065185444
+          },
+          {
+            "offset": 1268,
+            "u32": 30
+          },
+          {
+            "offset": 1272,
+            "u32": 1073741824
+          }
+        ],
+        "float_candidate_count": 6,
+        "float_candidate_first": [
+          {
+            "offset": 1160,
+            "f32": 0.7
+          },
+          {
+            "offset": 1176,
+            "f32": 0.7
+          },
+          {
+            "offset": 1240,
+            "f32": 0.84
+          },
+          {
+            "offset": 1248,
+            "f32": 2.0
+          },
+          {
+            "offset": 1264,
+            "f32": 0.99
+          },
+          {
+            "offset": 1272,
+            "f32": 2.0
+          }
+        ]
+      },
+      "record16_candidates_first": [
+        {
+          "offset": 1148,
+          "key": 1,
+          "raw_u32": 1060320051,
+          "value_f32": 0.7,
+          "value_u32": 1060320051
+        },
+        {
+          "offset": 1164,
+          "key": 1,
+          "raw_u32": 1060320051,
+          "value_f32": 0.7,
+          "value_u32": 1060320051
+        },
+        {
+          "offset": 1228,
+          "key": 2,
+          "raw_u32": 1062668861,
+          "value_f32": 0.84,
+          "value_u32": 1062668861
+        },
+        {
+          "offset": 1252,
+          "key": 2,
+          "raw_u32": 1065185444,
+          "value_f32": 0.99,
+          "value_u32": 1065185444
+        }
+      ],
+      "inferred_parameters": {
+        "record16_count": 4,
+        "top_keys": [
+          {
+            "key": 1,
+            "count": 2
+          },
+          {
+            "key": 2,
+            "count": 2
+          }
+        ],
+        "size_candidates": [
+          {
+            "offset": 1148,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "size-like range, common sprite size range"
+          },
+          {
+            "offset": 1164,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "size-like range, common sprite size range"
+          },
+          {
+            "offset": 1228,
+            "key": 2,
+            "score": 4.0,
+            "value_f32": 0.84,
+            "value_u32": 1062668861,
+            "why": "size-like range, common sprite size range"
+          },
+          {
+            "offset": 1252,
+            "key": 2,
+            "score": 4.0,
+            "value_f32": 0.99,
+            "value_u32": 1065185444,
+            "why": "size-like range, common sprite size range"
+          }
+        ],
+        "life_candidates": [
+          {
+            "offset": 1148,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "life-like range, common particle lifetime"
+          },
+          {
+            "offset": 1164,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "life-like range, common particle lifetime"
+          },
+          {
+            "offset": 1228,
+            "key": 2,
+            "score": 4.0,
+            "value_f32": 0.84,
+            "value_u32": 1062668861,
+            "why": "life-like range, common particle lifetime"
+          },
+          {
+            "offset": 1252,
+            "key": 2,
+            "score": 4.0,
+            "value_f32": 0.99,
+            "value_u32": 1065185444,
+            "why": "life-like range, common particle lifetime"
+          }
+        ],
+        "speed_candidates": [
+          {
+            "offset": 1148,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "speed-like range, common weapon fx velocity"
+          },
+          {
+            "offset": 1164,
+            "key": 1,
+            "score": 4.0,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "speed-like range, common weapon fx velocity"
+          },
+          {
+            "offset": 1228,
+            "key": 2,
+            "score": 4.0,
+            "value_f32": 0.84,
+            "value_u32": 1062668861,
+            "why": "speed-like range, common weapon fx velocity"
+          },
+          {
+            "offset": 1252,
+            "key": 2,
+            "score": 4.0,
+            "value_f32": 0.99,
+            "value_u32": 1065185444,
+            "why": "speed-like range, common weapon fx velocity"
+          }
+        ],
+        "spread_candidates": [
+          {
+            "offset": 1148,
+            "key": 1,
+            "score": 4.8,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          },
+          {
+            "offset": 1164,
+            "key": 1,
+            "score": 4.8,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          },
+          {
+            "offset": 1228,
+            "key": 2,
+            "score": 4.8,
+            "value_f32": 0.84,
+            "value_u32": 1062668861,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          },
+          {
+            "offset": 1252,
+            "key": 2,
+            "score": 4.8,
+            "value_f32": 0.99,
+            "value_u32": 1065185444,
+            "why": "spread-like range, common spread/jitter range, common key id"
+          }
+        ],
+        "rate_candidates": [
+          {
+            "offset": 1148,
+            "key": 1,
+            "score": 1.2,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "rate-like float range"
+          },
+          {
+            "offset": 1164,
+            "key": 1,
+            "score": 1.2,
+            "value_f32": 0.7,
+            "value_u32": 1060320051,
+            "why": "rate-like float range"
+          },
+          {
+            "offset": 1228,
+            "key": 2,
+            "score": 1.2,
+            "value_f32": 0.84,
+            "value_u32": 1062668861,
+            "why": "rate-like float range"
+          },
+          {
+            "offset": 1252,
+            "key": 2,
+            "score": 1.2,
+            "value_f32": 0.99,
+            "value_u32": 1065185444,
+            "why": "rate-like float range"
+          }
+        ]
+      }
+    }
+  ],
+  "whole_file_numeric": {
+    "start": 0,
+    "end": 1280,
+    "nonzero_u32_count": 118,
+    "nonzero_u32_first": [
+      {
+        "offset": 0,
+        "u32": 1717986658
+      },
+      {
+        "offset": 4,
+        "u32": 8
+      },
+      {
+        "offset": 16,
+        "u32": 2
+      },
+      {
+        "offset": 40,
+        "u32": 1
+      },
+      {
+        "offset": 48,
+        "u32": 4294967295
+      },
+      {
+        "offset": 56,
+        "u32": 6
+      },
+      {
+        "offset": 80,
+        "u32": 1
+      },
+      {
+        "offset": 96,
+        "u32": 1
+      },
+      {
+        "offset": 112,
+        "u32": 1
+      },
+      {
+        "offset": 128,
+        "u32": 1
+      },
+      {
+        "offset": 144,
+        "u32": 1
+      },
+      {
+        "offset": 160,
+        "u32": 1
+      },
+      {
+        "offset": 176,
+        "u32": 1
+      },
+      {
+        "offset": 192,
+        "u32": 1
+      },
+      {
+        "offset": 208,
+        "u32": 1
+      },
+      {
+        "offset": 224,
+        "u32": 1
+      },
+      {
+        "offset": 240,
+        "u32": 1
+      },
+      {
+        "offset": 252,
+        "u32": 1065353216
+      },
+      {
+        "offset": 256,
+        "u32": 1
+      },
+      {
+        "offset": 272,
+        "u32": 1
+      },
+      {
+        "offset": 288,
+        "u32": 1
+      },
+      {
+        "offset": 304,
+        "u32": 1
+      },
+      {
+        "offset": 320,
+        "u32": 1065353216
+      },
+      {
+        "offset": 328,
+        "u32": 1
+      },
+      {
+        "offset": 332,
+        "u32": 1
+      },
+      {
+        "offset": 336,
+        "u32": 30
+      },
+      {
+        "offset": 348,
+        "u32": 1
+      },
+      {
+        "offset": 352,
+        "u32": 1086918618
+      },
+      {
+        "offset": 356,
+        "u32": 100
+      },
+      {
+        "offset": 360,
+        "u32": 1086918618
+      },
+      {
+        "offset": 364,
+        "u32": 100
+      },
+      {
+        "offset": 368,
+        "u32": 1086918616
+      },
+      {
+        "offset": 372,
+        "u32": 100
+      },
+      {
+        "offset": 412,
+        "u32": 16
+      },
+      {
+        "offset": 416,
+        "u32": 1819042146
+      },
+      {
+        "offset": 420,
+        "u32": 1734962271
+      },
+      {
+        "offset": 424,
+        "u32": 775189608
+      },
+      {
+        "offset": 428,
+        "u32": 6383476
+      },
+      {
+        "offset": 432,
+        "u32": 1
+      },
+      {
+        "offset": 448,
+        "u32": 1
+      },
+      {
+        "offset": 464,
+        "u32": 1
+      },
+      {
+        "offset": 480,
+        "u32": 3
+      },
+      {
+        "offset": 496,
+        "u32": 15
+      },
+      {
+        "offset": 500,
+        "u32": 255
+      },
+      {
+        "offset": 504,
+        "u32": 30
+      },
+      {
+        "offset": 512,
+        "u32": 1
+      },
+      {
+        "offset": 524,
+        "u32": 1060320051
+      },
+      {
+        "offset": 528,
+        "u32": 1
+      },
+      {
+        "offset": 540,
+        "u32": 1060320051
+      },
+      {
+        "offset": 544,
+        "u32": 1
+      },
+      {
+        "offset": 556,
+        "u32": 1024391844
+      },
+      {
+        "offset": 560,
+        "u32": 1
+      },
+      {
+        "offset": 572,
+        "u32": 1033061504
+      },
+      {
+        "offset": 576,
+        "u32": 1
+      },
+      {
+        "offset": 588,
+        "u32": 1024391844
+      },
+      {
+        "offset": 592,
+        "u32": 3
+      },
+      {
+        "offset": 604,
+        "u32": 1056964608
+      },
+      {
+        "offset": 608,
+        "u32": 15
+      },
+      {
+        "offset": 612,
+        "u32": 1065353216
+      },
+      {
+        "offset": 616,
+        "u32": 30
+      },
+      {
+        "offset": 620,
+        "u32": 1056964608
+      },
+      {
+        "offset": 624,
+        "u32": 3
+      },
+      {
+        "offset": 636,
+        "u32": 1056964608
+      },
+      {
+        "offset": 640,
+        "u32": 15
+      },
+      {
+        "offset": 644,
+        "u32": 1065353216
+      },
+      {
+        "offset": 648,
+        "u32": 30
+      },
+      {
+        "offset": 652,
+        "u32": 1056964608
+      },
+      {
+        "offset": 680,
+        "u32": 1
+      },
+      {
+        "offset": 688,
+        "u32": 4294967295
+      },
+      {
+        "offset": 696,
+        "u32": 3
+      },
+      {
+        "offset": 720,
+        "u32": 1
+      },
+      {
+        "offset": 736,
+        "u32": 1
+      },
+      {
+        "offset": 752,
+        "u32": 1
+      },
+      {
+        "offset": 768,
+        "u32": 1
+      },
+      {
+        "offset": 784,
+        "u32": 1
+      },
+      {
+        "offset": 800,
+        "u32": 1
+      },
+      {
+        "offset": 816,
+        "u32": 1
+      },
+      {
+        "offset": 832,
+        "u32": 1
+      },
+      {
+        "offset": 848,
+        "u32": 1
+      },
+      {
+        "offset": 864,
+        "u32": 1
+      }
+    ],
+    "float_candidate_count": 25,
+    "float_candidate_first": [
+      {
+        "offset": 252,
+        "f32": 1.0
+      },
+      {
+        "offset": 320,
+        "f32": 1.0
+      },
+      {
+        "offset": 352,
+        "f32": 6.283185
+      },
+      {
+        "offset": 360,
+        "f32": 6.283185
+      },
+      {
+        "offset": 368,
+        "f32": 6.283184
+      },
+      {
+        "offset": 524,
+        "f32": 0.7
+      },
+      {
+        "offset": 540,
+        "f32": 0.7
+      },
+      {
+        "offset": 556,
+        "f32": 0.034907
+      },
+      {
+        "offset": 572,
+        "f32": 0.071908
+      },
+      {
+        "offset": 588,
+        "f32": 0.034907
+      },
+      {
+        "offset": 604,
+        "f32": 0.5
+      },
+      {
+        "offset": 612,
+        "f32": 1.0
+      },
+      {
+        "offset": 620,
+        "f32": 0.5
+      },
+      {
+        "offset": 636,
+        "f32": 0.5
+      },
+      {
+        "offset": 644,
+        "f32": 1.0
+      },
+      {
+        "offset": 652,
+        "f32": 0.5
+      },
+      {
+        "offset": 892,
+        "f32": 1.0
+      },
+      {
+        "offset": 960,
+        "f32": 1.0
+      },
+      {
+        "offset": 1008,
+        "f32": 6.283185
+      },
+      {
+        "offset": 1160,
+        "f32": 0.7
+      },
+      {
+        "offset": 1176,
+        "f32": 0.7
+      },
+      {
+        "offset": 1240,
+        "f32": 0.84
+      },
+      {
+        "offset": 1248,
+        "f32": 2.0
+      },
+      {
+        "offset": 1264,
+        "f32": 0.99
+      },
+      {
+        "offset": 1272,
+        "f32": 2.0
+      }
+    ]
+  },
+  "whole_file_record16_count": 17,
+  "whole_file_record16_first": [
+    {
+      "offset": 4,
+      "key": 8,
+      "raw_u32": 2,
+      "value_f32": null,
+      "value_u32": 2
+    },
+    {
+      "offset": 240,
+      "key": 1,
+      "raw_u32": 1065353216,
+      "value_f32": 1.0,
+      "value_u32": 1065353216
+    },
+    {
+      "offset": 336,
+      "key": 30,
+      "raw_u32": 1,
+      "value_f32": null,
+      "value_u32": 1
+    },
+    {
+      "offset": 512,
+      "key": 1,
+      "raw_u32": 1060320051,
+      "value_f32": 0.7,
+      "value_u32": 1060320051
+    },
+    {
+      "offset": 528,
+      "key": 1,
+      "raw_u32": 1060320051,
+      "value_f32": 0.7,
+      "value_u32": 1060320051
+    },
+    {
+      "offset": 544,
+      "key": 1,
+      "raw_u32": 1024391844,
+      "value_f32": 0.034907,
+      "value_u32": 1024391844
+    },
+    {
+      "offset": 560,
+      "key": 1,
+      "raw_u32": 1033061504,
+      "value_f32": 0.071908,
+      "value_u32": 1033061504
+    },
+    {
+      "offset": 576,
+      "key": 1,
+      "raw_u32": 1024391844,
+      "value_f32": 0.034907,
+      "value_u32": 1024391844
+    },
+    {
+      "offset": 592,
+      "key": 3,
+      "raw_u32": 1056964608,
+      "value_f32": 0.5,
+      "value_u32": 1056964608
+    },
+    {
+      "offset": 624,
+      "key": 3,
+      "raw_u32": 1056964608,
+      "value_f32": 0.5,
+      "value_u32": 1056964608
+    },
+    {
+      "offset": 880,
+      "key": 1,
+      "raw_u32": 1065353216,
+      "value_f32": 1.0,
+      "value_u32": 1065353216
+    },
+    {
+      "offset": 960,
+      "key": 1065353216,
+      "raw_u32": 1,
+      "value_f32": null,
+      "value_u32": 1
+    },
+    {
+      "offset": 976,
+      "key": 30,
+      "raw_u32": 1,
+      "value_f32": null,
+      "value_u32": 1
+    },
+    {
+      "offset": 1148,
+      "key": 1,
+      "raw_u32": 1060320051,
+      "value_f32": 0.7,
+      "value_u32": 1060320051
+    },
+    {
+      "offset": 1164,
+      "key": 1,
+      "raw_u32": 1060320051,
+      "value_f32": 0.7,
+      "value_u32": 1060320051
+    },
+    {
+      "offset": 1228,
+      "key": 2,
+      "raw_u32": 1062668861,
+      "value_f32": 0.84,
+      "value_u32": 1062668861
+    },
+    {
+      "offset": 1252,
+      "key": 2,
+      "raw_u32": 1065185444,
+      "value_f32": 0.99,
+      "value_u32": 1065185444
+    }
+  ],
+  "whole_file_inferred_parameters": {
+    "record16_count": 17,
+    "top_keys": [
+      {
+        "key": 1,
+        "count": 9
+      },
+      {
+        "key": 30,
+        "count": 2
+      },
+      {
+        "key": 3,
+        "count": 2
+      },
+      {
+        "key": 2,
+        "count": 2
+      },
+      {
+        "key": 8,
+        "count": 1
+      },
+      {
+        "key": 1065353216,
+        "count": 1
+      }
+    ],
+    "size_candidates": [
+      {
+        "offset": 240,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 1.0,
+        "value_u32": 1065353216,
+        "why": "size-like range, common sprite size range"
+      },
+      {
+        "offset": 512,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "size-like range, common sprite size range"
+      },
+      {
+        "offset": 528,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "size-like range, common sprite size range"
+      },
+      {
+        "offset": 592,
+        "key": 3,
+        "score": 4.0,
+        "value_f32": 0.5,
+        "value_u32": 1056964608,
+        "why": "size-like range, common sprite size range"
+      },
+      {
+        "offset": 624,
+        "key": 3,
+        "score": 4.0,
+        "value_f32": 0.5,
+        "value_u32": 1056964608,
+        "why": "size-like range, common sprite size range"
+      },
+      {
+        "offset": 880,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 1.0,
+        "value_u32": 1065353216,
+        "why": "size-like range, common sprite size range"
+      },
+      {
+        "offset": 1148,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "size-like range, common sprite size range"
+      },
+      {
+        "offset": 1164,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "size-like range, common sprite size range"
+      },
+      {
+        "offset": 1228,
+        "key": 2,
+        "score": 4.0,
+        "value_f32": 0.84,
+        "value_u32": 1062668861,
+        "why": "size-like range, common sprite size range"
+      },
+      {
+        "offset": 1252,
+        "key": 2,
+        "score": 4.0,
+        "value_f32": 0.99,
+        "value_u32": 1065185444,
+        "why": "size-like range, common sprite size range"
+      },
+      {
+        "offset": 560,
+        "key": 1,
+        "score": 2.0,
+        "value_f32": 0.071908,
+        "value_u32": 1033061504,
+        "why": "size-like range"
+      }
+    ],
+    "life_candidates": [
+      {
+        "offset": 240,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 1.0,
+        "value_u32": 1065353216,
+        "why": "life-like range, common particle lifetime"
+      },
+      {
+        "offset": 512,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "life-like range, common particle lifetime"
+      },
+      {
+        "offset": 528,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "life-like range, common particle lifetime"
+      },
+      {
+        "offset": 592,
+        "key": 3,
+        "score": 4.0,
+        "value_f32": 0.5,
+        "value_u32": 1056964608,
+        "why": "life-like range, common particle lifetime"
+      },
+      {
+        "offset": 624,
+        "key": 3,
+        "score": 4.0,
+        "value_f32": 0.5,
+        "value_u32": 1056964608,
+        "why": "life-like range, common particle lifetime"
+      },
+      {
+        "offset": 880,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 1.0,
+        "value_u32": 1065353216,
+        "why": "life-like range, common particle lifetime"
+      },
+      {
+        "offset": 1148,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "life-like range, common particle lifetime"
+      },
+      {
+        "offset": 1164,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "life-like range, common particle lifetime"
+      },
+      {
+        "offset": 1228,
+        "key": 2,
+        "score": 4.0,
+        "value_f32": 0.84,
+        "value_u32": 1062668861,
+        "why": "life-like range, common particle lifetime"
+      },
+      {
+        "offset": 1252,
+        "key": 2,
+        "score": 4.0,
+        "value_f32": 0.99,
+        "value_u32": 1065185444,
+        "why": "life-like range, common particle lifetime"
+      },
+      {
+        "offset": 544,
+        "key": 1,
+        "score": 2.0,
+        "value_f32": 0.034907,
+        "value_u32": 1024391844,
+        "why": "life-like range"
+      },
+      {
+        "offset": 560,
+        "key": 1,
+        "score": 2.0,
+        "value_f32": 0.071908,
+        "value_u32": 1033061504,
+        "why": "life-like range"
+      }
+    ],
+    "speed_candidates": [
+      {
+        "offset": 592,
+        "key": 3,
+        "score": 4.8,
+        "value_f32": 0.5,
+        "value_u32": 1056964608,
+        "why": "speed-like range, common weapon fx velocity, common key id"
+      },
+      {
+        "offset": 624,
+        "key": 3,
+        "score": 4.8,
+        "value_f32": 0.5,
+        "value_u32": 1056964608,
+        "why": "speed-like range, common weapon fx velocity, common key id"
+      },
+      {
+        "offset": 240,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 1.0,
+        "value_u32": 1065353216,
+        "why": "speed-like range, common weapon fx velocity"
+      },
+      {
+        "offset": 512,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "speed-like range, common weapon fx velocity"
+      },
+      {
+        "offset": 528,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "speed-like range, common weapon fx velocity"
+      },
+      {
+        "offset": 560,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.071908,
+        "value_u32": 1033061504,
+        "why": "speed-like range, common weapon fx velocity"
+      },
+      {
+        "offset": 880,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 1.0,
+        "value_u32": 1065353216,
+        "why": "speed-like range, common weapon fx velocity"
+      },
+      {
+        "offset": 1148,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "speed-like range, common weapon fx velocity"
+      },
+      {
+        "offset": 1164,
+        "key": 1,
+        "score": 4.0,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "speed-like range, common weapon fx velocity"
+      },
+      {
+        "offset": 1228,
+        "key": 2,
+        "score": 4.0,
+        "value_f32": 0.84,
+        "value_u32": 1062668861,
+        "why": "speed-like range, common weapon fx velocity"
+      },
+      {
+        "offset": 1252,
+        "key": 2,
+        "score": 4.0,
+        "value_f32": 0.99,
+        "value_u32": 1065185444,
+        "why": "speed-like range, common weapon fx velocity"
+      },
+      {
+        "offset": 544,
+        "key": 1,
+        "score": 2.0,
+        "value_f32": 0.034907,
+        "value_u32": 1024391844,
+        "why": "speed-like range"
+      }
+    ],
+    "spread_candidates": [
+      {
+        "offset": 240,
+        "key": 1,
+        "score": 4.8,
+        "value_f32": 1.0,
+        "value_u32": 1065353216,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      },
+      {
+        "offset": 512,
+        "key": 1,
+        "score": 4.8,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      },
+      {
+        "offset": 528,
+        "key": 1,
+        "score": 4.8,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      },
+      {
+        "offset": 544,
+        "key": 1,
+        "score": 4.8,
+        "value_f32": 0.034907,
+        "value_u32": 1024391844,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      },
+      {
+        "offset": 560,
+        "key": 1,
+        "score": 4.8,
+        "value_f32": 0.071908,
+        "value_u32": 1033061504,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      },
+      {
+        "offset": 576,
+        "key": 1,
+        "score": 4.8,
+        "value_f32": 0.034907,
+        "value_u32": 1024391844,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      },
+      {
+        "offset": 592,
+        "key": 3,
+        "score": 4.8,
+        "value_f32": 0.5,
+        "value_u32": 1056964608,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      },
+      {
+        "offset": 624,
+        "key": 3,
+        "score": 4.8,
+        "value_f32": 0.5,
+        "value_u32": 1056964608,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      },
+      {
+        "offset": 880,
+        "key": 1,
+        "score": 4.8,
+        "value_f32": 1.0,
+        "value_u32": 1065353216,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      },
+      {
+        "offset": 1148,
+        "key": 1,
+        "score": 4.8,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      },
+      {
+        "offset": 1164,
+        "key": 1,
+        "score": 4.8,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      },
+      {
+        "offset": 1228,
+        "key": 2,
+        "score": 4.8,
+        "value_f32": 0.84,
+        "value_u32": 1062668861,
+        "why": "spread-like range, common spread/jitter range, common key id"
+      }
+    ],
+    "rate_candidates": [
+      {
+        "offset": 336,
+        "key": 30,
+        "score": 2.5,
+        "value_f32": null,
+        "value_u32": 1,
+        "why": "rate-like integer range"
+      },
+      {
+        "offset": 976,
+        "key": 30,
+        "score": 2.5,
+        "value_f32": null,
+        "value_u32": 1,
+        "why": "rate-like integer range"
+      },
+      {
+        "offset": 240,
+        "key": 1,
+        "score": 2.2,
+        "value_f32": 1.0,
+        "value_u32": 1065353216,
+        "why": "rate-like float range, common spawn rate range"
+      },
+      {
+        "offset": 880,
+        "key": 1,
+        "score": 2.2,
+        "value_f32": 1.0,
+        "value_u32": 1065353216,
+        "why": "rate-like float range, common spawn rate range"
+      },
+      {
+        "offset": 4,
+        "key": 8,
+        "score": 2.0,
+        "value_f32": null,
+        "value_u32": 2,
+        "why": "rate-like integer range"
+      },
+      {
+        "offset": 960,
+        "key": 1065353216,
+        "score": 2.0,
+        "value_f32": null,
+        "value_u32": 1,
+        "why": "rate-like integer range"
+      },
+      {
+        "offset": 512,
+        "key": 1,
+        "score": 1.2,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "rate-like float range"
+      },
+      {
+        "offset": 528,
+        "key": 1,
+        "score": 1.2,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "rate-like float range"
+      },
+      {
+        "offset": 592,
+        "key": 3,
+        "score": 1.2,
+        "value_f32": 0.5,
+        "value_u32": 1056964608,
+        "why": "rate-like float range"
+      },
+      {
+        "offset": 624,
+        "key": 3,
+        "score": 1.2,
+        "value_f32": 0.5,
+        "value_u32": 1056964608,
+        "why": "rate-like float range"
+      },
+      {
+        "offset": 1148,
+        "key": 1,
+        "score": 1.2,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "rate-like float range"
+      },
+      {
+        "offset": 1164,
+        "key": 1,
+        "score": 1.2,
+        "value_f32": 0.7,
+        "value_u32": 1060320051,
+        "why": "rate-like float range"
+      }
+    ]
+  }
+}

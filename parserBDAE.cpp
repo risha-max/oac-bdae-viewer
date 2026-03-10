@@ -1,6 +1,548 @@
 #include "model.h"
 #include "PackPatchReader.h"
 #include "libs/stb_image.h"
+#include <unordered_set>
+#include <fstream>
+
+namespace
+{
+std::string toLowerAscii(std::string value)
+{
+	for (char &c : value)
+		c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+	return value;
+}
+
+std::string normalizeSlashes(std::string value)
+{
+	for (char &c : value)
+	{
+		if (c == '\\')
+			c = '/';
+	}
+	return value;
+}
+
+std::string withPngExtension(const std::string &path)
+{
+	std::filesystem::path p(path);
+	p.replace_extension(".png");
+	return p.string();
+}
+
+std::unordered_map<std::string, std::string> g_textureByFilename;
+struct TextureEntry
+{
+	std::string stemLower;
+	std::string path;
+};
+std::vector<TextureEntry> g_textureEntries;
+bool g_textureIndexInitialized = false;
+
+void buildTextureIndex()
+{
+	if (g_textureIndexInitialized)
+		return;
+
+	g_textureIndexInitialized = true;
+	const std::vector<std::string> roots = {"data/texture_converted", "data/texture", "data/texture2g"};
+
+	for (const std::string &root : roots)
+	{
+		if (!std::filesystem::exists(root))
+			continue;
+
+		for (const std::filesystem::directory_entry &entry : std::filesystem::recursive_directory_iterator(root))
+		{
+			if (!entry.is_regular_file())
+				continue;
+
+			std::string key = toLowerAscii(entry.path().filename().string());
+			if (!key.empty() && g_textureByFilename.find(key) == g_textureByFilename.end())
+				g_textureByFilename[key] = entry.path().string();
+
+			std::string stem = toLowerAscii(entry.path().stem().string());
+			if (!stem.empty())
+				g_textureEntries.push_back({stem, entry.path().string()});
+		}
+	}
+}
+
+std::string findTextureByFilename(const std::string &filename)
+{
+	buildTextureIndex();
+
+	std::string key = toLowerAscii(filename);
+	auto it = g_textureByFilename.find(key);
+	if (it != g_textureByFilename.end())
+		return it->second;
+
+	return "";
+}
+
+std::vector<std::string> splitAlphaTokens(const std::string &value)
+{
+	std::vector<std::string> tokens;
+	std::string current;
+
+	for (char c : toLowerAscii(value))
+	{
+		if (std::isalpha(static_cast<unsigned char>(c)))
+			current.push_back(c);
+		else if (!current.empty())
+		{
+			tokens.push_back(current);
+			current.clear();
+		}
+	}
+
+	if (!current.empty())
+		tokens.push_back(current);
+
+	for (std::string &token : tokens)
+	{
+		// common typo in assets
+		if (token == "sowrd")
+			token = "sword";
+	}
+
+	return tokens;
+}
+
+std::vector<std::string> splitAlphaNumTokens(const std::string &value)
+{
+	std::vector<std::string> tokens;
+	std::string current;
+	for (char c : toLowerAscii(value))
+	{
+		if (std::isalnum(static_cast<unsigned char>(c)))
+			current.push_back(c);
+		else if (!current.empty())
+		{
+			tokens.push_back(current);
+			current.clear();
+		}
+	}
+	if (!current.empty())
+		tokens.push_back(current);
+	return tokens;
+}
+
+int scoreEffectForItemModel(const std::string &modelPath, const std::string &effectPath)
+{
+	std::string m = toLowerAscii(normalizeSlashes(modelPath));
+	std::string e = toLowerAscii(normalizeSlashes(effectPath));
+	int score = 0;
+
+	bool isWeapon = (m.find("/model/item/weapon/") != std::string::npos);
+	bool isArmor = (m.find("/model/item/armor/") != std::string::npos);
+	if (isWeapon && (e.find("/effects/equipment/weapon/") != std::string::npos || e.find("effects/equipment/weapon/") != std::string::npos))
+		score += 10;
+	if (isArmor && (e.find("/effects/equipment/armor/") != std::string::npos || e.find("effects/equipment/armor/") != std::string::npos))
+		score += 10;
+	if (e.find("/effects/skill/") != std::string::npos || e.find("effects/skill/") != std::string::npos)
+		score -= 4;
+
+	// Extract meaningful model tokens, including numeric IDs like 07.
+	std::vector<std::string> tokens = splitAlphaNumTokens(m);
+	static const std::unordered_set<std::string> stop = {
+		"oac1osp", "data", "model", "item", "weapon", "one", "two", "hand", "ranged", "weapons", "range"};
+
+	for (const std::string &tok : tokens)
+	{
+		if (tok.empty() || stop.find(tok) != stop.end())
+			continue;
+
+		bool numeric = !tok.empty() && std::all_of(tok.begin(), tok.end(), [](unsigned char c) { return std::isdigit(c); });
+		if (numeric)
+		{
+			// keep short numeric IDs that often map to specific skins/effects, e.g. 07
+			if (tok.size() <= 3 && e.find(tok) != std::string::npos)
+				score += 3;
+			continue;
+		}
+
+		if (tok.size() >= 4)
+		{
+			if (e.find(tok) != std::string::npos)
+				score += 4;
+		}
+		else if (tok.size() >= 3)
+		{
+			if (e.find(tok) != std::string::npos)
+				score += 2;
+		}
+	}
+
+	return score;
+}
+
+std::string detectArmorSlotToken(const std::string &modelPathLower);
+bool hasAnyArmorSlotToken(const std::string &nameLower);
+bool textureMatchesArmorSlot(const std::string &nameLower, const std::string &slot);
+
+std::string findTextureByModelHeuristic(const std::string &modelPath, const std::string &modelFileName)
+{
+	buildTextureIndex();
+	std::string lowerModelPath = toLowerAscii(normalizeSlashes(modelPath));
+	std::string armorSlot = detectArmorSlotToken(lowerModelPath);
+
+	std::vector<std::string> queryTokens = splitAlphaTokens(std::filesystem::path(modelFileName).stem().string());
+	std::vector<std::string> pathTokens = splitAlphaTokens(modelPath);
+	queryTokens.insert(queryTokens.end(), pathTokens.begin(), pathTokens.end());
+
+	auto isUseful = [](const std::string &token)
+	{
+		if (token.size() <= 2)
+			return false;
+		static const std::unordered_set<std::string> stop = {
+			"item", "items", "model", "models", "weapon", "weapons", "one", "two", "hand", "main", "off", "held", "in"};
+		return stop.find(token) == stop.end();
+	};
+
+	std::vector<std::string> filteredTokens;
+	for (const std::string &token : queryTokens)
+	{
+		if (isUseful(token))
+			filteredTokens.push_back(token);
+	}
+
+	int bestScore = 0;
+	std::string bestPath;
+
+	for (const TextureEntry &entry : g_textureEntries)
+	{
+		int score = 0;
+		for (const std::string &token : filteredTokens)
+		{
+			if (entry.stemLower.find(token) != std::string::npos)
+				score += (token.size() >= 6) ? 3 : 2;
+		}
+
+		if (!armorSlot.empty())
+		{
+			if (textureMatchesArmorSlot(entry.stemLower, armorSlot))
+				score += 6;
+			else if (hasAnyArmorSlotToken(entry.stemLower))
+				score -= 6;
+		}
+
+		if (score > bestScore)
+		{
+			bestScore = score;
+			bestPath = entry.path;
+		}
+	}
+
+	// Require at least one meaningful token match.
+	if (bestScore >= 2)
+		return bestPath;
+
+	return "";
+}
+
+std::string sanitizeEmbeddedTextureHint(std::string raw)
+{
+	raw = normalizeSlashes(toLowerAscii(raw));
+	while (!raw.empty() && (raw.back() == '_' || raw.back() == ' ' || raw.back() == '\t'))
+		raw.pop_back();
+
+	auto trimToExt = [&](const std::string &ext)
+	{
+		size_t pos = raw.find(ext);
+		if (pos != std::string::npos)
+			raw.resize(pos + ext.size());
+	};
+	trimToExt(".tga");
+	trimToExt(".png");
+	trimToExt(".dds");
+
+	// Common map label pattern: Map__59__iron_shoulder.tga
+	size_t mapPos = raw.find("map__");
+	if (mapPos != std::string::npos)
+	{
+		size_t split = raw.rfind("__");
+		if (split != std::string::npos && split + 2 < raw.size())
+			raw = raw.substr(split + 2);
+	}
+
+	// Keep only final file name if path-like text is embedded.
+	size_t slash = raw.find_last_of('/');
+	if (slash != std::string::npos && slash + 1 < raw.size())
+		raw = raw.substr(slash + 1);
+
+	return raw;
+}
+
+std::vector<std::string> extractEmbeddedTextureHints(const char *data, size_t size)
+{
+	std::vector<std::string> out;
+	std::unordered_set<std::string> seen;
+	std::string cur;
+
+	for (size_t i = 0; i < size; i++)
+	{
+		unsigned char c = (unsigned char)data[i];
+		if (c >= 32 && c <= 126)
+		{
+			cur.push_back((char)c);
+			continue;
+		}
+
+		if (cur.size() >= 6)
+		{
+			std::string lower = toLowerAscii(cur);
+			if (lower.find(".tga") != std::string::npos || lower.find(".png") != std::string::npos || lower.find(".dds") != std::string::npos)
+			{
+				std::string cleaned = sanitizeEmbeddedTextureHint(cur);
+				std::string key = toLowerAscii(cleaned);
+				if (!cleaned.empty() && seen.insert(key).second)
+					out.push_back(cleaned);
+			}
+		}
+		cur.clear();
+	}
+
+	// flush tail
+	if (cur.size() >= 6)
+	{
+		std::string lower = toLowerAscii(cur);
+		if (lower.find(".tga") != std::string::npos || lower.find(".png") != std::string::npos || lower.find(".dds") != std::string::npos)
+		{
+			std::string cleaned = sanitizeEmbeddedTextureHint(cur);
+			std::string key = toLowerAscii(cleaned);
+			if (!cleaned.empty() && seen.insert(key).second)
+				out.push_back(cleaned);
+		}
+	}
+
+	return out;
+}
+
+std::string detectArmorSlotToken(const std::string &modelPathLower)
+{
+	if (modelPathLower.find("/item/armor/head/") != std::string::npos)
+		return "head";
+	if (modelPathLower.find("/item/armor/shoulder/") != std::string::npos)
+		return "shoulder";
+	if (modelPathLower.find("/item/armor/chest/") != std::string::npos)
+		return "chest";
+	if (modelPathLower.find("/item/armor/hand/") != std::string::npos)
+		return "hand";
+	if (modelPathLower.find("/item/armor/leg/") != std::string::npos)
+		return "leg";
+	if (modelPathLower.find("/item/armor/foot/") != std::string::npos)
+		return "foot";
+	if (modelPathLower.find("/item/armor/off_hand/") != std::string::npos)
+		return "off_hand";
+	return "";
+}
+
+bool hasAnyArmorSlotToken(const std::string &nameLower)
+{
+	static const std::vector<std::string> tokens = {
+		"head", "shoulder", "chest", "hand", "leg", "foot", "off_hand", "offhand", "shield"};
+	for (const std::string &t : tokens)
+	{
+		if (nameLower.find(t) != std::string::npos)
+			return true;
+	}
+	return false;
+}
+
+bool textureMatchesArmorSlot(const std::string &nameLower, const std::string &slot)
+{
+	if (slot.empty())
+		return true;
+	if (slot == "off_hand")
+		return nameLower.find("off_hand") != std::string::npos || nameLower.find("offhand") != std::string::npos || nameLower.find("shield") != std::string::npos;
+	return nameLower.find(slot) != std::string::npos;
+}
+
+std::vector<std::string> rankEmbeddedHintsForArmor(const std::vector<std::string> &hints, const std::string &modelPath)
+{
+	std::string lowerModelPath = toLowerAscii(normalizeSlashes(modelPath));
+	std::string slot = detectArmorSlotToken(lowerModelPath);
+	std::vector<std::string> modelTokens = splitAlphaTokens(std::filesystem::path(modelPath).stem().string());
+
+	struct RankedHint
+	{
+		int score;
+		std::string value;
+	};
+	std::vector<RankedHint> ranked;
+	ranked.reserve(hints.size());
+
+	for (const std::string &h : hints)
+	{
+		std::string lower = toLowerAscii(h);
+		int score = 0;
+
+		if (!slot.empty())
+		{
+			if (textureMatchesArmorSlot(lower, slot))
+				score += 10;
+			else if (hasAnyArmorSlotToken(lower))
+				score -= 12;
+		}
+
+		for (const std::string &tok : modelTokens)
+		{
+			if (tok.size() >= 3 && lower.find(tok) != std::string::npos)
+				score += (tok.size() >= 5) ? 3 : 2;
+		}
+
+		// Slight preference for commonly converted formats.
+		if (lower.rfind(".png") == lower.size() - 4)
+			score += 1;
+		if (lower.rfind(".tga") == lower.size() - 4)
+			score += 1;
+
+		ranked.push_back({score, h});
+	}
+
+	std::stable_sort(ranked.begin(), ranked.end(), [](const RankedHint &a, const RankedHint &b)
+					 { return a.score > b.score; });
+
+	std::vector<std::string> out;
+	out.reserve(ranked.size());
+	for (const RankedHint &r : ranked)
+		out.push_back(r.value);
+	return out;
+}
+
+struct ItemBinding
+{
+	std::vector<std::string> effects;
+	std::string socketName;
+};
+
+std::unordered_map<std::string, ItemBinding> g_itemBindings;
+bool g_itemBindingsInitialized = false;
+std::unordered_map<std::string, std::string> g_effectByFilename;
+bool g_effectIndexInitialized = false;
+
+std::string normalizeItemModelKey(std::string modelPath)
+{
+	modelPath = normalizeSlashes(toLowerAscii(modelPath));
+	size_t modelPos = modelPath.find("model/item/");
+	if (modelPos != std::string::npos)
+		return modelPath.substr(modelPos);
+	return "";
+}
+
+void buildItemBindings()
+{
+	if (g_itemBindingsInitialized)
+		return;
+	g_itemBindingsInitialized = true;
+
+	std::ifstream file("oac1osp/data/tables/itemmodeldata.tbl", std::ios::binary);
+	if (!file)
+		return;
+
+	std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+	std::vector<std::string> chunks;
+	std::string cur;
+	for (unsigned char c : bytes)
+	{
+		if (c >= 32 && c <= 126)
+			cur.push_back((char)c);
+		else
+		{
+			if (cur.size() >= 4)
+				chunks.push_back(cur);
+			cur.clear();
+		}
+	}
+	if (cur.size() >= 4)
+		chunks.push_back(cur);
+
+	for (int i = 0; i < (int)chunks.size(); i++)
+	{
+		std::string modelKey = normalizeItemModelKey(chunks[i]);
+		if (modelKey.empty() || modelKey.find(".bdae") == std::string::npos)
+			continue;
+
+		ItemBinding &binding = g_itemBindings[modelKey];
+		for (int j = std::max(0, i - 24); j < (int)chunks.size() && j < i + 24; j++)
+		{
+			if (j == i)
+				continue;
+			std::string lower = toLowerAscii(chunks[j]);
+			std::string otherModelKey = normalizeItemModelKey(chunks[j]);
+			if (!otherModelKey.empty() && otherModelKey != modelKey)
+				continue;
+
+			if (lower.find(".beff") != std::string::npos)
+			{
+				std::string p = normalizeSlashes(chunks[j]);
+				if (p.rfind("Effects/", 0) == 0 || p.rfind("effects/", 0) == 0)
+					p = "data/" + p;
+				if (std::find(binding.effects.begin(), binding.effects.end(), p) == binding.effects.end())
+					binding.effects.push_back(p);
+			}
+			else if (lower.find("dummy_") != std::string::npos && lower.find("-node") != std::string::npos)
+			{
+				if (binding.socketName.empty())
+					binding.socketName = chunks[j];
+			}
+		}
+	}
+}
+
+ItemBinding getItemBindingForModel(const std::string &modelPath)
+{
+	buildItemBindings();
+	ItemBinding empty;
+	std::string key = normalizeItemModelKey(modelPath);
+	if (key.empty())
+		return empty;
+
+	auto it = g_itemBindings.find(key);
+	if (it != g_itemBindings.end())
+		return it->second;
+	return empty;
+}
+
+void buildEffectIndex()
+{
+	if (g_effectIndexInitialized)
+		return;
+	g_effectIndexInitialized = true;
+
+	const std::string root = "data/Effects";
+	if (!std::filesystem::exists(root))
+		return;
+
+	for (const std::filesystem::directory_entry &entry : std::filesystem::recursive_directory_iterator(root))
+	{
+		if (!entry.is_regular_file())
+			continue;
+		if (entry.path().extension() != ".beff")
+			continue;
+
+		std::string key = toLowerAscii(entry.path().filename().string());
+		if (!key.empty() && g_effectByFilename.find(key) == g_effectByFilename.end())
+			g_effectByFilename[key] = entry.path().string();
+	}
+}
+
+std::string resolveEffectPath(const std::string &effectPath)
+{
+	std::string p = normalizeSlashes(effectPath);
+	if (std::filesystem::exists(p))
+		return p;
+
+	buildEffectIndex();
+	std::string fname = toLowerAscii(std::filesystem::path(p).filename().string());
+	auto it = g_effectByFilename.find(fname);
+	if (it != g_effectByFilename.end())
+		return it->second;
+
+	return "";
+}
+} // namespace
 
 //! Parses .bdae model file: textures, materials, meshes, mesh skin (if exist), and node tree.
 int Model::init(IReadResFile *file)
@@ -174,7 +716,8 @@ int Model::init(IReadResFile *file)
 	std::vector<int> submeshTriangleCount[meshCount];
 	std::vector<int> submeshIndexDataOffset[meshCount];
 
-	std::vector<std::string> meshNames(meshCount);
+	meshNames.resize(meshCount);
+	meshEnabled.assign(meshCount, true);
 
 	for (int i = 0; i < meshCount; i++)
 	{
@@ -247,6 +790,56 @@ int Model::init(IReadResFile *file)
 		}
 
 		totalSubmeshCount += submeshCount[i];
+	}
+
+	// Humanoid character .bdae files often contain many alternative hair/armor mesh variants.
+	// Keep one default variant per mesh-prefix to avoid rendering overlapping alternatives at once.
+	if (useHumanoidVariantFilter && !meshNames.empty())
+	{
+		std::unordered_map<std::string, std::vector<int>> variantGroups;
+		std::unordered_map<std::string, std::pair<int, int>> bestVariant; // prefix -> {numericSuffix, meshIndex}
+
+		for (int i = 0; i < (int)meshNames.size(); i++)
+		{
+			const std::string &name = meshNames[i];
+			size_t underscorePos = name.rfind('_');
+			if (underscorePos == std::string::npos || underscorePos + 1 >= name.size())
+				continue;
+
+			std::string suffix = name.substr(underscorePos + 1);
+			if (!std::all_of(suffix.begin(), suffix.end(), [](unsigned char c) { return std::isdigit(c); }))
+				continue;
+
+			int suffixNumber = std::stoi(suffix);
+			std::string prefix = name.substr(0, underscorePos);
+
+			variantGroups[prefix].push_back(i);
+
+			auto it = bestVariant.find(prefix);
+			if (it == bestVariant.end() || suffixNumber < it->second.first)
+				bestVariant[prefix] = {suffixNumber, i};
+		}
+
+		int hiddenMeshes = 0;
+		for (const auto &entry : variantGroups)
+		{
+			const std::vector<int> &indicesInGroup = entry.second;
+			if (indicesInGroup.size() <= 1)
+				continue;
+
+			int keepIndex = bestVariant[entry.first].second;
+			for (int meshIdx : indicesInGroup)
+			{
+				if (meshIdx != keepIndex)
+				{
+					meshEnabled[meshIdx] = false;
+					hiddenMeshes++;
+				}
+			}
+		}
+
+		if (hiddenMeshes > 0)
+			LOG("[Load] Humanoid variant filter enabled: hidden ", hiddenMeshes, " alternative meshes.");
 	}
 
 	// 6. parse NODES (nodes allow to position meshes within a model) and match nodes with meshes
@@ -341,10 +934,12 @@ int Model::init(IReadResFile *file)
 
 	indices.resize(totalSubmeshCount);
 	int currentSubmeshIndex = 0;
+	std::vector<int> meshVertexStart(meshCount, 0);
 
 	for (int i = 0; i < meshCount; i++)
 	{
 		int vertexBase = vertices.size(); // [FIX] to convert vertex indices from local to global range
+		meshVertexStart[i] = vertexBase;
 
 		char *meshVertexDataPtr = DataBuffer + meshVertexDataOffset[i] + 4;
 
@@ -390,105 +985,240 @@ int Model::init(IReadResFile *file)
 
 	if (meshSkinCount == 0)
 		LOG("[Init] Skipping bones parsing. This is a non-skinned model.\033[0m");
-	else if (meshSkinCount != 1)
+	else if (meshSkinCount < 0)
 	{
-		LOG("[Error] Model::init unhandled mesh skin count (this value is always expected to be equal to 1).");
+		LOG("[Error] Model::init invalid mesh skin count: ", meshSkinCount);
 		return -1;
 	}
 	else
 	{
+		bool disableHumanoidSkinningFallback = false;
+
+		if (meshSkinCount > 1)
+		{
+			if (useHumanoidVariantFilter)
+			{
+				LOG("[Warning] Model::init mesh skin count is ", meshSkinCount, ". Parsing all skin entries for humanoid compatibility.");
+			}
+			else
+				LOG("[Warning] Model::init mesh skin count is ", meshSkinCount, ". Using the first skin entry.");
+		}
+
 		LOG("\n\033[37m[Init] Mesh skinning detected. Parsing bones data.\033[0m");
 
 		hasSkinningData = true;
+		boneNames.clear();
+		bindPoseMatrices.clear();
+		boneTotalTransforms.clear();
+		boneToNodeIdx.clear();
+		bindShapeMatrix = glm::mat4(1.0f);
 
-		int meshSkinDataOffset;
+		std::unordered_map<std::string, int> globalBoneIndexByName;
+		int maxInfluenceSeen = 0;
+		std::vector<int> meshSkinDataOffsets;
 
-#ifdef BETA_GAME_VERSION
-		memcpy(&meshSkinDataOffset, DataBuffer + meshSkinMetadataOffset + 8, sizeof(int));
-#else
-		memcpy(&meshSkinDataOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16, sizeof(int));
-#endif
-
-		int bindPoseDataOffset; // bone count * 16 floats (4 x 4 matrix for each bone)
-		int boneCount, boneNamesOffset;
-		int boneInfluenceFloatCount, boneInfluenceDataOffset; // vertex count * (4 bytes for bone indices + maxInfluence floats for bone weights)
-		int maxInfluence;									  // how many bones can influence one vertex
-
-#ifdef BETA_GAME_VERSION
-		memcpy(&bindPoseDataOffset, DataBuffer + meshSkinDataOffset + 4, sizeof(int));
-		memcpy(&bindShapeMatrix, DataBuffer + meshSkinDataOffset + 16, sizeof(glm::mat4));
-		memcpy(&boneCount, DataBuffer + meshSkinDataOffset + 116, sizeof(int));
-		memcpy(&boneNamesOffset, DataBuffer + meshSkinDataOffset + 120, sizeof(int));
-		memcpy(&boneInfluenceFloatCount, DataBuffer + meshSkinDataOffset + 124, sizeof(int));
-		memcpy(&boneInfluenceDataOffset, DataBuffer + meshSkinDataOffset + 128, sizeof(int));
-		memcpy(&maxInfluence, DataBuffer + meshSkinDataOffset + 152, sizeof(int));
-#else
-		memcpy(&bindPoseDataOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 4, sizeof(int));
-		memcpy(&bindShapeMatrix, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 16, sizeof(glm::mat4));
-		memcpy(&boneCount, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 120, sizeof(int));
-		memcpy(&boneNamesOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 124, sizeof(int));
-		memcpy(&boneInfluenceFloatCount, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 128, sizeof(int));
-		memcpy(&boneInfluenceDataOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 136, sizeof(int));
-		memcpy(&maxInfluence, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 176, sizeof(int));
-#endif
-
-		if (maxInfluence < 1 || maxInfluence > 4)
+		auto inRange = [&](int offset, int size = 1) -> bool
 		{
-			LOG("[Error] Model::init invalid max influence value: ", maxInfluence);
-			return -1;
+			return offset >= 0 && size >= 0 && offset <= (int)sizeUnRemovable - size;
+		};
+
+#ifdef BETA_GAME_VERSION
+		auto isValidSkinOffset = [&](int offset) -> bool
+		{
+			if (!inRange(offset, 184))
+				return false;
+
+			int boneCount = 0;
+			int boneInfluenceFloatCount = 0;
+			int boneInfluenceDataOffset = 0;
+			int maxInfluence = 0;
+
+			memcpy(&boneCount, DataBuffer + offset + 116, sizeof(int));
+			memcpy(&boneInfluenceFloatCount, DataBuffer + offset + 124, sizeof(int));
+			memcpy(&boneInfluenceDataOffset, DataBuffer + offset + 128, sizeof(int));
+			memcpy(&maxInfluence, DataBuffer + offset + 152, sizeof(int));
+
+			if (boneCount < 1 || boneCount > 512)
+				return false;
+			if (maxInfluence < 1 || maxInfluence > 4)
+				return false;
+			if (boneInfluenceFloatCount < (maxInfluence + 1))
+				return false;
+			if (!inRange(boneInfluenceDataOffset + 4, 4))
+				return false;
+
+			return true;
+		};
+
+		// Mesh skin metadata in beta files contains interleaved values.
+		// Detect actual skin block offsets by validating candidate structures.
+		const int scanStart = meshSkinMetadataOffset;
+		const int scanEnd = std::min((int)sizeUnRemovable - 4, meshSkinMetadataOffset + meshSkinCount * 128);
+		for (int p = scanStart; p <= scanEnd; p += 4)
+		{
+			int candidate = 0;
+			memcpy(&candidate, DataBuffer + p, sizeof(int));
+			if (!isValidSkinOffset(candidate))
+				continue;
+
+			if (std::find(meshSkinDataOffsets.begin(), meshSkinDataOffsets.end(), candidate) == meshSkinDataOffsets.end())
+				meshSkinDataOffsets.push_back(candidate);
 		}
 
-		LOG("One vertex can be influenced by up to ", maxInfluence, " bones.");
+		std::sort(meshSkinDataOffsets.begin(), meshSkinDataOffsets.end());
+#else
+		meshSkinDataOffsets.resize(1, -1);
+		memcpy(&meshSkinDataOffsets[0], DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16, sizeof(int));
+#endif
 
-		LOG("\nBONES: ", boneCount);
+		if ((int)meshSkinDataOffsets.size() < meshSkinCount)
+			LOG("[Warning] Model::init found only ", (int)meshSkinDataOffsets.size(), " valid mesh skin block(s) out of ", meshSkinCount);
 
-		if (boneCount > 0)
+		for (int skinIdx = 0; skinIdx < meshSkinCount && skinIdx < meshCount; skinIdx++)
 		{
-			boneNames.resize(boneCount);
-			bindPoseMatrices.resize(boneCount);
-			boneTotalTransforms.resize(boneCount);
+			if (skinIdx >= (int)meshSkinDataOffsets.size())
+				continue;
 
-			for (int i = 0; i < boneCount; i++)
+			int meshSkinDataOffset = meshSkinDataOffsets[skinIdx];
+
+			if (!inRange(meshSkinDataOffset, 184))
+				continue;
+
+			int bindPoseDataOffset; // bone count * 16 floats (4 x 4 matrix for each bone)
+			int boneCount, boneNamesOffset;
+			int boneInfluenceFloatCount, boneInfluenceDataOffset; // vertex count * (4 bytes for bone indices + maxInfluence floats for bone weights)
+			int maxInfluence;									  // how many bones can influence one vertex
+			glm::mat4 localBindShapeMatrix;
+
+#ifdef BETA_GAME_VERSION
+			memcpy(&bindPoseDataOffset, DataBuffer + meshSkinDataOffset + 4, sizeof(int));
+			memcpy(&localBindShapeMatrix, DataBuffer + meshSkinDataOffset + 16, sizeof(glm::mat4));
+			memcpy(&boneCount, DataBuffer + meshSkinDataOffset + 116, sizeof(int));
+			memcpy(&boneNamesOffset, DataBuffer + meshSkinDataOffset + 120, sizeof(int));
+			memcpy(&boneInfluenceFloatCount, DataBuffer + meshSkinDataOffset + 124, sizeof(int));
+			memcpy(&boneInfluenceDataOffset, DataBuffer + meshSkinDataOffset + 128, sizeof(int));
+			memcpy(&maxInfluence, DataBuffer + meshSkinDataOffset + 152, sizeof(int));
+#else
+			memcpy(&bindPoseDataOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 4, sizeof(int));
+			memcpy(&localBindShapeMatrix, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 16, sizeof(glm::mat4));
+			memcpy(&boneCount, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 120, sizeof(int));
+			memcpy(&boneNamesOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 124, sizeof(int));
+			memcpy(&boneInfluenceFloatCount, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 128, sizeof(int));
+			memcpy(&boneInfluenceDataOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 136, sizeof(int));
+			memcpy(&maxInfluence, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 176, sizeof(int));
+#endif
+
+			if (maxInfluence < 1 || maxInfluence > 4 || boneCount < 0 || boneCount > 512)
+				continue;
+
+			maxInfluenceSeen = std::max(maxInfluenceSeen, maxInfluence);
+			if (skinIdx == 0)
+				bindShapeMatrix = localBindShapeMatrix;
+
+			std::vector<int> localToGlobalBoneIdx(boneCount, -1);
+
+			for (int localBoneIdx = 0; localBoneIdx < boneCount; localBoneIdx++)
 			{
 				BDAEint boneNameOffset;
 				int boneNameLength;
 
 #ifdef BETA_GAME_VERSION
-				memcpy(&boneNameOffset, DataBuffer + boneNamesOffset + i * 4, sizeof(BDAEint));
+				memcpy(&boneNameOffset, DataBuffer + boneNamesOffset + localBoneIdx * 4, sizeof(BDAEint));
 #else
-				memcpy(&boneNameOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 124 + boneNamesOffset + i * 8, sizeof(BDAEint));
+				memcpy(&boneNameOffset, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 124 + boneNamesOffset + localBoneIdx * 8, sizeof(BDAEint));
 #endif
-
+				if (!inRange((int)boneNameOffset - 4, 4))
+					continue;
 				memcpy(&boneNameLength, DataBuffer + boneNameOffset - 4, sizeof(int));
+				if (!inRange((int)boneNameOffset, boneNameLength))
+					continue;
 
-				boneNames[i] = std::string((DataBuffer + boneNameOffset), boneNameLength);
-
-				LOG("[", i + 1, "] \033[96m", boneNames[i], "\033[0m");
+				std::string boneName((DataBuffer + boneNameOffset), boneNameLength);
+				glm::mat4 localBindPose(1.0f);
 
 #ifdef BETA_GAME_VERSION
-				memcpy(&bindPoseMatrices[i], DataBuffer + bindPoseDataOffset + i * 64, sizeof(glm::mat4));
+				if (inRange(bindPoseDataOffset + localBoneIdx * 64, 64))
+					memcpy(&localBindPose, DataBuffer + bindPoseDataOffset + localBoneIdx * 64, sizeof(glm::mat4));
 #else
-				memcpy(&bindPoseMatrices[i], DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 4 + bindPoseDataOffset + i * 64, sizeof(glm::mat4));
+				if (inRange(header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 4 + bindPoseDataOffset + localBoneIdx * 64, 64))
+					memcpy(&localBindPose, DataBuffer + header->offsetData + 128 + 4 + meshSkinMetadataOffset + 16 + meshSkinDataOffset + 4 + bindPoseDataOffset + localBoneIdx * 64, sizeof(glm::mat4));
 #endif
+
+				int globalBoneIdx;
+				auto it = globalBoneIndexByName.find(boneName);
+				if (it == globalBoneIndexByName.end())
+				{
+					globalBoneIdx = (int)boneNames.size();
+					globalBoneIndexByName[boneName] = globalBoneIdx;
+					boneNames.push_back(boneName);
+					bindPoseMatrices.push_back(localBindPose);
+					boneTotalTransforms.push_back(glm::mat4(1.0f));
+				}
+				else
+					globalBoneIdx = it->second;
+
+				localToGlobalBoneIdx[localBoneIdx] = globalBoneIdx;
+			}
+
+			int vertexStart = meshVertexStart[skinIdx];
+			int vertexCountInMesh = meshVertexCount[skinIdx];
+			int influenceVertexCount = (maxInfluence + 1 > 0) ? (boneInfluenceFloatCount / (maxInfluence + 1)) : 0;
+			int verticesToProcess = std::min(vertexCountInMesh, influenceVertexCount);
+
+			for (int localVertexIdx = 0; localVertexIdx < verticesToProcess; localVertexIdx++)
+			{
+				int globalVertexIdx = vertexStart + localVertexIdx;
+				if (globalVertexIdx < 0 || globalVertexIdx >= (int)vertices.size())
+					continue;
+
+				char localBoneIndices[4] = {0};
+				float localWeights[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+
+				int influenceOffset = boneInfluenceDataOffset + 4 + localVertexIdx * (maxInfluence + 1) * 4;
+				if (!inRange(influenceOffset + 4, maxInfluence * (int)sizeof(float)))
+					continue;
+
+				memcpy(localBoneIndices, DataBuffer + influenceOffset, 4);
+				memcpy(localWeights, DataBuffer + influenceOffset + 4, maxInfluence * sizeof(float));
+
+				for (int j = 0; j < 4; j++)
+				{
+					vertices[globalVertexIdx].BoneIndices[j] = 0;
+					vertices[globalVertexIdx].BoneWeights[j] = 0.0f;
+				}
+
+				for (int j = 0; j < maxInfluence && j < 4; j++)
+				{
+					int localBoneIdx = (unsigned char)localBoneIndices[j];
+					if (localBoneIdx < 0 || localBoneIdx >= (int)localToGlobalBoneIdx.size())
+						continue;
+
+					int globalBoneIdx = localToGlobalBoneIdx[localBoneIdx];
+					if (globalBoneIdx < 0 || globalBoneIdx > 255)
+						continue;
+
+					vertices[globalVertexIdx].BoneIndices[j] = (char)globalBoneIdx;
+					vertices[globalVertexIdx].BoneWeights[j] = localWeights[j];
+				}
 			}
 		}
+
+		if (maxInfluenceSeen > 0)
+			LOG("One vertex can be influenced by up to ", maxInfluenceSeen, " bones.");
+
+		LOG("\nBONES: ", (int)boneNames.size());
+		for (int i = 0; i < (int)boneNames.size(); i++)
+			LOG("[", i + 1, "] \033[96m", boneNames[i], "\033[0m");
 
 		/* map bones to nodes
 		   each bone should (and can) be mapped to only one node
 		   each node may be mapped to only one bone, or not mapped at all */
-
-		// previously, when recursively parsing the node tree, we mapped bone names to node indices, however we didn't know the actual number of bones (so unmapped bones couldn’t be determined)
-		// now we build a hash table that includes all bones and stores bone indices instead of names
-
-		for (int i = 0; i < boneCount; i++)
+		for (int i = 0; i < (int)boneNames.size(); i++)
 		{
 			auto it = boneNameToNodeIdx.find(boneNames[i]);
 
 			if (it != boneNameToNodeIdx.end())
-			{
-				int nodeIndex = it->second;
-				boneToNodeIdx[i] = nodeIndex;
-			}
+				boneToNodeIdx[i] = it->second;
 			else
 			{
 				LOG("[Warning] Model::init bone [", i + 1, "] ", boneNames[i], " is unmapped.");
@@ -496,21 +1226,8 @@ int Model::init(IReadResFile *file)
 			}
 		}
 
-		// loop through each vertex (because boneInfluenceFloatCount / (maxInfluence + 1) = vertexCount)
-		for (int i = 0; i < boneInfluenceFloatCount / (maxInfluence + 1); i++)
-		{
-			char indices[4] = {0};				  // the number of bone indices is always 4 (effectively only maxInfluence indices are stored, and the remaining elements are reserved to align to 4 bytes)
-			float weights[maxInfluence] = {0.0f}; // the number of bone weights equals maxInfluence
-
-			memcpy(indices, DataBuffer + boneInfluenceDataOffset + 4 + i * (maxInfluence + 1) * 4, 4);
-			memcpy(weights, DataBuffer + boneInfluenceDataOffset + 4 + i * (maxInfluence + 1) * 4 + 4, maxInfluence * sizeof(float));
-
-			for (int j = 0; j < maxInfluence; j++)
-			{
-				vertices[i].BoneIndices[j] = indices[j];
-				vertices[i].BoneWeights[j] = weights[j];
-			}
-		}
+		// Keep fallback disabled by default once multi-skin parsing succeeds.
+		(void)disableHumanoidSkinningFallback;
 	}
 
 	LOG("\n\033[1m\033[38;2;200;200;200m[Init] Finishing Model::init..\033[0m\n");
@@ -703,23 +1420,48 @@ void Model::load(const char *fpath, Sound &sound, bool isTerrainViewer)
 	reset();
 
 	// 1. load .bdae file
-	CPackPatchReader *bdaeArchive;
+	CPackPatchReader *bdaeArchive = NULL;
+	IReadResFile *bdaeFile = NULL;
+
+	std::vector<std::string> archiveCandidates;
 
 	if (isTerrainViewer)
-		bdaeArchive = new CPackPatchReader((std::string("data/model/unsorted/") + (fpath + 6)).c_str(), true, false); // open outer .bdae archive file
-	else
-		bdaeArchive = new CPackPatchReader(fpath, true, false);
-
-	if (!bdaeArchive)
-		return;
-
-	IReadResFile *bdaeFile = bdaeArchive->openFile("little_endian_not_quantized.bdae"); // open inner .bdae file
-
-	if (!bdaeFile)
 	{
-		delete bdaeArchive;
-		return;
+		std::string relPath = fpath;
+		std::replace(relPath.begin(), relPath.end(), '\\', '/');
+
+		// Expected .itm references usually start with "model/...".
+		if (relPath.rfind("model/", 0) == 0)
+		{
+			archiveCandidates.push_back("data/model/unsorted/" + relPath.substr(6));
+			archiveCandidates.push_back("data/" + relPath);
+		}
+
+		archiveCandidates.push_back("data/model/" + relPath);
+		archiveCandidates.push_back(relPath);
 	}
+	else
+		archiveCandidates.push_back(fpath);
+
+	for (int i = 0; i < (int)archiveCandidates.size(); i++)
+	{
+		CPackPatchReader *candidateArchive = new CPackPatchReader(archiveCandidates[i].c_str(), true, false);
+		if (!candidateArchive)
+			continue;
+
+		IReadResFile *candidateFile = candidateArchive->openFile("little_endian_not_quantized.bdae"); // open inner .bdae file
+		if (candidateFile)
+		{
+			bdaeArchive = candidateArchive;
+			bdaeFile = candidateFile;
+			break;
+		}
+
+		delete candidateArchive;
+	}
+
+	if (!bdaeArchive || !bdaeFile)
+		return;
 
 	LOG("\033[1m\033[97mLoading ", fpath, "\033[0m");
 
@@ -727,6 +1469,13 @@ void Model::load(const char *fpath, Sound &sound, bool isTerrainViewer)
 	std::string modelPath = path.string();
 	std::replace(modelPath.begin(), modelPath.end(), '\\', '/');	// normalize model path for cross-platform compatibility (Windows uses '\', Linux uses '/')
 	fileName = modelPath.substr(modelPath.find_last_of("/\\") + 1); // file name is after the last path separator in the full path
+
+	std::string lowerModelPath = toLowerAscii(modelPath);
+	useHumanoidVariantFilter = !isTerrainViewer &&
+							   (lowerModelPath.find("/npc/character/human/") != std::string::npos ||
+								lowerModelPath.find("/npc/character/orc/") != std::string::npos ||
+								lowerModelPath.find("/npc/character/elf/") != std::string::npos ||
+								lowerModelPath.find("/npc/character/undead/") != std::string::npos);
 
 	// 2. run the parser
 	int result = init(bdaeFile);
@@ -782,14 +1531,38 @@ void Model::load(const char *fpath, Sound &sound, bool isTerrainViewer)
 		modelCenter /= vertices.size();
 
 		// 3. process strings retrieved from .bdae
-		const char *subDirStart = std::strstr(modelPath.c_str(), "/model/") + 7; // subpath starts after '/model/' (texture and model files have the same subpath, e.g. 'creature/pet/')
-		const char *subDirEnd = std::strrchr(modelPath.c_str(), '/') + 1;		 // last '/' before the file name
-		std::string textureSubDir(subDirStart, subDirEnd);
+		std::string textureSubDir;
+		const char *modelSubpath = std::strstr(modelPath.c_str(), "/model/");
+		const char *subDirEnd = std::strrchr(modelPath.c_str(), '/');
+
+		// subpath starts after '/model/' (texture and model files often share this subpath, e.g. 'creature/pet/')
+		if (modelSubpath != NULL && subDirEnd != NULL && subDirEnd > modelSubpath + 7)
+			textureSubDir = std::string(modelSubpath + 7, subDirEnd + 1);
 
 		bool isUnsortedFolder = false; // for 'unsorted' folder
 
 		if (textureSubDir.rfind("unsorted/", 0) == 0)
 			isUnsortedFolder = true;
+
+		// Many armor .bdae files do not populate TEXTURES, but still carry texture-like labels.
+		if (textureNames.empty() && lowerModelPath.find("/item/armor/") != std::string::npos && DataBuffer != NULL)
+		{
+			size_t blobSize = (size_t)fileSize;
+			BDAEFileHeader *header = reinterpret_cast<BDAEFileHeader *>(DataBuffer);
+			if (header->sizeOfFile >= header->sizeOfDynamic)
+				blobSize = (size_t)(header->sizeOfFile - header->sizeOfDynamic);
+
+			std::vector<std::string> embeddedHints = extractEmbeddedTextureHints(DataBuffer, blobSize);
+			if (!embeddedHints.empty())
+			{
+				textureNames = rankEmbeddedHintsForArmor(embeddedHints, modelPath);
+				// Keep the candidate set focused to avoid noisy metadata strings.
+				if (textureNames.size() > 8)
+					textureNames.resize(8);
+				textureCount = (int)textureNames.size();
+				LOG("[Load] Armor fallback: found ", textureCount, " embedded texture hints.");
+			}
+		}
 
 		// post-process retrieved texture names
 		for (int i = 0, n = (int)textureNames.size(); i < n; i++)
@@ -799,32 +1572,92 @@ void Model::load(const char *fpath, Sound &sound, bool isTerrainViewer)
 			if (s.length() <= 4)
 				continue;
 
-			// convert to lowercase
-			for (char &c : s)
-				c = std::tolower(c);
-
-			// remove 'avatar/' if it exists
-			int avatarPos = s.find("avatar/");
-			if (avatarPos != (int)std::string::npos && !isUnsortedFolder)
-				s.erase(avatarPos, 7);
+			s = toLowerAscii(normalizeSlashes(s));
 
 			// remove 'texture/' if it exists
 			if (s.rfind("texture/", 0) == 0)
 				s.erase(0, 8);
 
-			// replace the ending with '.png'
-			s.replace(s.length() - 4, 4, ".png");
+			std::filesystem::path original(s);
+			std::string fileNameOnly = original.filename().string();
+			std::vector<std::string> candidates;
 
-			// build final path
-			if (!isUnsortedFolder)
-				s = "data/texture/" + textureSubDir + s;
-			else
-				s = "data/texture/unsorted/" + s;
+			auto asConverted = [](const std::string &path)
+			{
+				const std::string texturePrefix = "data/texture/";
+				const std::string texture2gPrefix = "data/texture2g/";
+				std::filesystem::path p(path);
+				if (path.rfind(texturePrefix, 0) == 0)
+					p = std::filesystem::path("data/texture_converted") / path.substr(texturePrefix.size());
+				else if (path.rfind(texture2gPrefix, 0) == 0)
+					p = std::filesystem::path("data/texture_converted") / path.substr(texture2gPrefix.size());
+				p.replace_extension(".png");
+				return p.string();
+			};
+
+			auto addPathVariants = [&](const std::string &basePath)
+			{
+				// Prefer decoded converted assets first.
+				candidates.push_back(asConverted(basePath));
+				candidates.push_back(basePath);
+				candidates.push_back(withPngExtension(basePath));
+			};
+
+			// 1) explicit texture-relative path from .bdae (e.g. avatar/human_xxx.tga)
+			addPathVariants("data/texture/" + s);
+
+			// 2) model-relative texture path (original behavior)
+			if (!textureSubDir.empty())
+				addPathVariants("data/texture/" + textureSubDir + fileNameOnly);
+
+			// 3) unsorted fallback for mixed assets
+			addPathVariants("data/texture/unsorted/" + fileNameOnly);
+
+			// 4) texture2g roots (often PVR-backed source assets)
+			addPathVariants("data/texture2g/" + s);
+			if (!textureSubDir.empty())
+				addPathVariants("data/texture2g/" + textureSubDir + fileNameOnly);
+			addPathVariants("data/texture2g/unsorted/" + fileNameOnly);
+
+			// 5) generic extension variants for all candidates
+			const int baseCandidateCount = candidates.size();
+			for (int j = 0; j < baseCandidateCount; j++)
+			{
+				std::string pngCandidate = withPngExtension(candidates[j]);
+				if (pngCandidate != candidates[j])
+					candidates.push_back(pngCandidate);
+			}
+
+			bool resolved = false;
+			for (int j = 0; j < (int)candidates.size(); j++)
+			{
+				if (std::filesystem::exists(candidates[j]))
+				{
+					s = candidates[j];
+					resolved = true;
+					break;
+				}
+			}
+
+			// Final fallback: locate texture by file name anywhere in texture roots.
+			if (!resolved)
+			{
+				std::string indexedPath = findTextureByFilename(fileNameOnly);
+				if (!indexedPath.empty())
+				{
+					s = indexedPath;
+					resolved = true;
+				}
+			}
+
+			if (!resolved)
+				s = candidates[0];
 		}
 
 		// if a texture file matching the model file name exists, override the parsed texture (for single-texture models only)
 		std::string s = "data/texture/" + textureSubDir + fileName;
-		s.replace(s.length() - 5, 5, ".png");
+		if (s.length() > 5)
+			s.replace(s.length() - 5, 5, ".png");
 
 		if (textureCount == 1 && std::filesystem::exists(s))
 		{
@@ -835,7 +1668,11 @@ void Model::load(const char *fpath, Sound &sound, bool isTerrainViewer)
 		// if a texture name is missing in the .bdae file, use this file's name instead (assuming the texture file was manually found and named)
 		if (textureNames.empty())
 		{
-			textureNames.push_back(s);
+			std::string heuristicTexture = findTextureByModelHeuristic(modelPath, fileName);
+			if (!heuristicTexture.empty())
+				textureNames.push_back(heuristicTexture);
+			else
+				textureNames.push_back(s);
 			textureCount++;
 		}
 
@@ -847,7 +1684,7 @@ void Model::load(const char *fpath, Sound &sound, bool isTerrainViewer)
 		// [TODO] handle for multi-texture models
 		if (textureNames.size() == 1 && std::filesystem::exists(textureNames[0]) && !isUnsortedFolder)
 		{
-			std::filesystem::path textureDir("data/texture/" + textureSubDir);
+			std::filesystem::path textureDir = std::filesystem::path(textureNames[0]).parent_path();
 			std::string baseTextureName = std::filesystem::path(textureNames[0]).stem().string(); // texture file name without extension or folder (e.g. 'boar_01' or 'puppy_bear_black')
 
 			std::string groupName; // name shared by a group of related textures
@@ -966,7 +1803,7 @@ void Model::load(const char *fpath, Sound &sound, bool isTerrainViewer)
 					if (!(entryPath.stem().string() == groupName || entryPath.stem().string().rfind(groupName + '_', 0) == 0))
 						continue;
 
-					std::string alternativeTextureName = "data/texture/" + textureSubDir + entryPath.filename().string();
+					std::string alternativeTextureName = (textureDir / entryPath.filename()).string();
 
 					// skip the original base texture (already in textureNames[0])
 					if (alternativeTextureName == textureNames[0])
@@ -1003,55 +1840,101 @@ void Model::load(const char *fpath, Sound &sound, bool isTerrainViewer)
 		std::string modelDir = path.parent_path().string(); // model folder path
 		std::string baseModelName = path.stem().string();	// model file name without extension or folder
 
-		std::string animDir;
+		std::vector<std::string> animDirs;
 
-		if (isUnsortedFolder)
-			animDir = modelDir + "/anim"; // for unsorted models, look in 'anim' subfolder
-		else
-			animDir = modelDir + "/animations/" + baseModelName; // for sorted models, look in 'animations/model_name' folder
+		// Common layouts found in the extracted assets.
+		animDirs.push_back(modelDir + "/anim");					  // sibling anim directory
+		animDirs.push_back(modelDir + "/animations/" + baseModelName); // per-model animation directory
 
-		std::vector<std::string> animationFileNames; // [TODO] to remove; there should be a vector of loaded animations instead
+		std::vector<std::pair<std::string, std::string>> discoveredAnimations; // {fullPath, fileName}
+		std::unordered_set<std::string> seenAnimationPaths;
 
-		// check if animation directory exists
-		if (std::filesystem::exists(animDir) && std::filesystem::is_directory(animDir))
+		for (int dirIdx = 0; dirIdx < (int)animDirs.size(); dirIdx++)
 		{
-			std::vector<std::string> found;
+			const std::string &animDir = animDirs[dirIdx];
+			if (!std::filesystem::exists(animDir) || !std::filesystem::is_directory(animDir))
+				continue;
 
-			// search for all .bdae files in the animation directory
+			// search for all .bdae files in animation directory candidates
 			for (const std::filesystem::directory_entry &entry : std::filesystem::directory_iterator(animDir))
 			{
 				if (!entry.is_regular_file())
 					continue;
 
 				std::filesystem::path entryPath = entry.path();
-
 				if (entryPath.extension() != ".bdae")
 					continue;
 
-				found.push_back(entryPath.string());
-				animationFileNames.push_back(entryPath.filename().string());
-			}
+				std::string fullPath = entryPath.string();
+				if (seenAnimationPaths.find(fullPath) != seenAnimationPaths.end())
+					continue;
 
-			std::sort(found.begin(), found.end());
-			std::sort(animationFileNames.begin(), animationFileNames.end());
-
-			// load all found animation .bdae files
-			if (!found.empty())
-			{
-				for (int i = 0; i < found.size(); i++)
-					loadAnimation(found[i].c_str());
+				seenAnimationPaths.insert(fullPath);
+				discoveredAnimations.push_back({fullPath, entryPath.filename().string()});
 			}
+		}
+
+		std::sort(discoveredAnimations.begin(), discoveredAnimations.end(), [](const auto &a, const auto &b)
+				  { return a.first < b.first; });
+
+		animationNames.clear();
+		for (int i = 0; i < (int)discoveredAnimations.size(); i++)
+		{
+			int previousAnimationCount = animationCount;
+			loadAnimation(discoveredAnimations[i].first.c_str());
+			if (animationCount > previousAnimationCount)
+				animationNames.push_back(discoveredAnimations[i].second);
 		}
 
 		LOG("\nANIMATIONS: ", animationCount);
 
-		for (int i = 0; i < animations.size(); i++)
-			LOG("[", i + 1, "] \033[96m", animationFileNames[i], "\033[0m  ", std::fixed, std::setprecision(2), animations[i].first, " sec duration");
+		for (int i = 0; i < (int)animations.size(); i++)
+		{
+			const std::string &animName = (i < (int)animationNames.size()) ? animationNames[i] : std::string("<unnamed>");
+			LOG("[", i + 1, "] \033[96m", animName, "\033[0m  ", std::fixed, std::setprecision(2), animations[i].first, " sec duration");
+		}
+
+		// For race character previews, automatically start first animation when available.
+		if (useHumanoidVariantFilter && animationsLoaded && animationCount > 0)
+		{
+			selectedAnimation = 0;
+
+			// Prefer a visibly moving default clip for quick verification.
+			for (int i = 0; i < (int)animationNames.size(); i++)
+			{
+				std::string name = toLowerAscii(animationNames[i]);
+				if (name == "walk_forward.bdae")
+				{
+					selectedAnimation = i;
+					break;
+				}
+			}
+
+			if (selectedAnimation == 0)
+			{
+				for (int i = 0; i < (int)animationNames.size(); i++)
+				{
+					std::string name = toLowerAscii(animationNames[i]);
+					if (name == "idle.bdae")
+					{
+						selectedAnimation = i;
+						break;
+					}
+				}
+			}
+
+			animationPlaying = true;
+		}
 
 		// 6. search for SOUNDS
 		// ____________________
 
-		sound.searchSoundFiles(fileName, sounds);
+		sound.searchSoundFiles(modelPath, sounds);
+
+		// 7. effects are intentionally disabled in viewer for now
+		// ____________________
+		effectPresets.clear();
+		selectedEffectPreset = 0;
 
 		LOG("\nSOUNDS: ", ((sounds.size() != 0) ? sounds.size() : 0));
 
@@ -1069,14 +1952,63 @@ void Model::load(const char *fpath, Sound &sound, bool isTerrainViewer)
 			if (s.length() <= 4)
 				continue;
 
-			for (char &c : s)
-				c = std::tolower(c);
+			s = toLowerAscii(normalizeSlashes(s));
 
 			if (s.rfind("texture/", 0) == 0)
-				s.erase(0, 8);
+				s.erase(0, 8); // keep relative part only
 
-			s.replace(s.length() - 4, 4, ".png");
-			s = "data/texture/unsorted/" + s;
+			std::filesystem::path original(s);
+			std::string fileNameOnly = original.filename().string();
+			std::vector<std::string> candidates;
+
+			auto asConverted = [](const std::string &path)
+			{
+				const std::string texturePrefix = "data/texture/";
+				const std::string texture2gPrefix = "data/texture2g/";
+				std::filesystem::path p(path);
+				if (path.rfind(texturePrefix, 0) == 0)
+					p = std::filesystem::path("data/texture_converted") / path.substr(texturePrefix.size());
+				else if (path.rfind(texture2gPrefix, 0) == 0)
+					p = std::filesystem::path("data/texture_converted") / path.substr(texture2gPrefix.size());
+				p.replace_extension(".png");
+				return p.string();
+			};
+
+			auto addPathVariants = [&](const std::string &basePath)
+			{
+				candidates.push_back(asConverted(basePath));
+				candidates.push_back(basePath);
+				candidates.push_back(withPngExtension(basePath));
+			};
+
+			addPathVariants("data/texture/" + s);
+			addPathVariants("data/texture/unsorted/" + fileNameOnly);
+			addPathVariants("data/texture2g/" + s);
+			addPathVariants("data/texture2g/unsorted/" + fileNameOnly);
+
+			bool resolved = false;
+			for (int c = 0; c < (int)candidates.size(); c++)
+			{
+				if (std::filesystem::exists(candidates[c]))
+				{
+					s = candidates[c];
+					resolved = true;
+					break;
+				}
+			}
+
+			if (!resolved)
+			{
+				std::string indexedPath = findTextureByFilename(fileNameOnly);
+				if (!indexedPath.empty())
+				{
+					s = indexedPath;
+					resolved = true;
+				}
+			}
+
+			if (!resolved)
+				s = candidates[0];
 		}
 	}
 
@@ -1141,7 +2073,14 @@ void Model::load(const char *fpath, Sound &sound, bool isTerrainViewer)
 
 		if (!data)
 		{
-			std::cerr << "Failed to load texture: " << textureNames[i] << "\n";
+			std::cerr << "Failed to load texture: " << textureNames[i] << " (using fallback checker texture)\n";
+
+			// Keep rendering robust even when source textures are missing/unsupported.
+			const unsigned char fallbackPixels[] = {
+				255, 0, 255, 255, 30, 30, 30, 255,
+				30, 30, 30, 255, 255, 0, 255, 255};
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, fallbackPixels);
+			glGenerateMipmap(GL_TEXTURE_2D);
 			continue;
 		}
 
@@ -1234,11 +2173,14 @@ void Model::load(const char *fpath, Sound &sound, bool isTerrainViewer)
 void Model::loadAnimation(const char *fpath)
 {
 	CPackPatchReader *bdaeArchive = new CPackPatchReader(fpath, true, false);
+	IReadResFile *bdaeFile = NULL;
 
-	if (!bdaeArchive)
-		return;
+	if (bdaeArchive)
+		bdaeFile = bdaeArchive->openFile("little_endian_not_quantized.bdae");
 
-	IReadResFile *bdaeFile = bdaeArchive->openFile("little_endian_not_quantized.bdae");
+	// Some animation assets are plain .bdae files (not packed archives).
+	if (!bdaeFile)
+		bdaeFile = createReadFile(fpath);
 
 	if (!bdaeFile)
 	{
@@ -1256,6 +2198,221 @@ void Model::loadAnimation(const char *fpath)
 	memcpy(DataBuffer, header, headerSize);
 
 	bdaeFile->read(DataBuffer + headerSize, fileSize - headerSize);
+
+	// Race character clips often use an alternative animation metadata layout.
+	// Try parsing that layout first for files inside '/anim/' folders.
+	{
+		std::string animPath = toLowerAscii(normalizeSlashes(fpath));
+		if (animPath.find("/anim/") != std::string::npos)
+		{
+			auto inRange = [&](int offset, int size = 1) -> bool
+			{
+				return offset >= 0 && size >= 0 && offset <= fileSize - size;
+			};
+			auto readU32 = [&](int offset) -> uint32_t
+			{
+				uint32_t value = 0;
+				if (inRange(offset, 4))
+					memcpy(&value, DataBuffer + offset, sizeof(uint32_t));
+				return value;
+			};
+			auto readStringAtOffset = [&](uint32_t stringOffset) -> std::string
+			{
+				if (stringOffset < 4 || stringOffset >= (uint32_t)fileSize)
+					return "";
+				int length = 0;
+				memcpy(&length, DataBuffer + stringOffset - 4, sizeof(int));
+				if (length <= 0 || length > 256 || !inRange((int)stringOffset, length))
+					return "";
+				return std::string(DataBuffer + stringOffset, length);
+			};
+
+			struct AltAnimRecord
+			{
+				std::string name;
+				int samplerOffset;
+			};
+			std::vector<AltAnimRecord> records;
+
+			// Build animation records table from the related-files section.
+			for (int off = (int)header->offsetRelatedFiles + 4; inRange(off, 32); off += 32)
+			{
+				uint32_t nameOffset = readU32(off + 4);
+				std::string animName = readStringAtOffset(nameOffset);
+				if (animName.empty())
+					break;
+
+				if (animName.find("-rotation") == std::string::npos &&
+					animName.find("-translation") == std::string::npos &&
+					animName.find("-scale") == std::string::npos)
+					break;
+
+				int samplerOffset = (int)readU32(off + 12);
+				if (!inRange(samplerOffset, 28))
+					break;
+
+				records.push_back({animName, samplerOffset});
+			}
+
+			if (!records.empty())
+			{
+				struct SourceDesc
+				{
+					uint32_t count;
+					int dataOffset;
+				};
+
+				// Find source descriptor table (contains 2 source entries per animation track).
+				int sourcesOffset = -1;
+				uint32_t expectedSourcesCount = (uint32_t)records.size() * 2;
+				for (int pos = 0; pos <= fileSize - 8; pos += 4)
+				{
+					if (readU32(pos) != expectedSourcesCount)
+						continue;
+
+					int validPreview = 0;
+					for (int i = 0; i < 16; i++)
+					{
+						int descPos = pos + 4 + i * 8;
+						if (!inRange(descPos, 8))
+							break;
+						uint32_t count = readU32(descPos);
+						uint32_t rel = readU32(descPos + 4);
+						int dataOffset = descPos + 4 + (int)rel;
+						if (count > 0 && inRange(dataOffset))
+							validPreview++;
+					}
+
+					if (validPreview >= 8)
+					{
+						sourcesOffset = pos;
+						break;
+					}
+				}
+
+				if (sourcesOffset > 0)
+				{
+					uint32_t sourcesCount = readU32(sourcesOffset);
+					std::vector<SourceDesc> sourceDescs;
+					sourceDescs.reserve(sourcesCount);
+
+					for (uint32_t i = 0; i < sourcesCount; i++)
+					{
+						int descPos = sourcesOffset + 4 + (int)i * 8;
+						if (!inRange(descPos, 8))
+							break;
+						uint32_t count = readU32(descPos);
+						uint32_t rel = readU32(descPos + 4);
+						int dataOffset = descPos + 4 + (int)rel;
+						sourceDescs.push_back({count, dataOffset});
+					}
+
+					std::vector<BaseAnimation> parsedAnimations;
+					float parsedDuration = 0.0f;
+
+					for (int i = 0; i < (int)records.size(); i++)
+					{
+						const AltAnimRecord &rec = records[i];
+
+						BaseAnimation baseAnim;
+						baseAnim.targetNodeName = rec.name;
+						baseAnim.animationType = 0;
+						if (rec.name.rfind("-translation") != std::string::npos)
+							baseAnim.animationType = 1;
+						else if (rec.name.rfind("-rotation") != std::string::npos)
+							baseAnim.animationType = 5;
+						else if (rec.name.rfind("-scale") != std::string::npos)
+							baseAnim.animationType = 10;
+						else
+							continue;
+
+						size_t suffixPos = baseAnim.targetNodeName.rfind('-');
+						if (suffixPos == std::string::npos)
+							continue;
+						baseAnim.targetNodeName = baseAnim.targetNodeName.substr(0, suffixPos);
+
+						int interpolationType = (int)readU32(rec.samplerOffset + 0);
+						int inputType = (int)readU32(rec.samplerOffset + 4);
+						int inputSourceIndex = (int)readU32(rec.samplerOffset + 12);
+						int outputType = (int)readU32(rec.samplerOffset + 16);
+						int outputComponentCount = (int)readU32(rec.samplerOffset + 20);
+						int outputSourceIndex = (int)readU32(rec.samplerOffset + 24);
+
+						baseAnim.interpolationType = interpolationType;
+
+						if (inputSourceIndex < 0 || outputSourceIndex < 0 ||
+							inputSourceIndex >= (int)sourceDescs.size() || outputSourceIndex >= (int)sourceDescs.size())
+							continue;
+
+						const SourceDesc &timeSrc = sourceDescs[inputSourceIndex];
+						const SourceDesc &valueSrc = sourceDescs[outputSourceIndex];
+						if (timeSrc.count < 1 || valueSrc.count < 1)
+							continue;
+
+						int componentCount = outputComponentCount;
+						if (componentCount <= 0)
+							componentCount = (baseAnim.animationType == 5) ? 4 : 3;
+
+						int keyframeCount = std::min((int)timeSrc.count, (int)valueSrc.count);
+						if (keyframeCount <= 0)
+							continue;
+
+						if (!inRange(timeSrc.dataOffset, keyframeCount) ||
+							!inRange(valueSrc.dataOffset, keyframeCount * componentCount * 4))
+							continue;
+
+						baseAnim.timestamps.reserve(keyframeCount);
+						baseAnim.transformations.reserve(keyframeCount);
+
+						for (int k = 0; k < keyframeCount; k++)
+						{
+							float t = 0.0f;
+							if (inputType == 1) // unsigned byte frame index
+							{
+								unsigned char frame = 0;
+								memcpy(&frame, DataBuffer + timeSrc.dataOffset + k, sizeof(unsigned char));
+								t = frame / 30.0f;
+							}
+							else
+							{
+								float raw = 0.0f;
+								memcpy(&raw, DataBuffer + timeSrc.dataOffset + k * 4, sizeof(float));
+								t = raw;
+							}
+							baseAnim.timestamps.push_back(t);
+							parsedDuration = std::max(parsedDuration, t);
+
+							std::vector<float> values(componentCount, 0.0f);
+							for (int c = 0; c < componentCount; c++)
+							{
+								float v = 0.0f;
+								int valueOffset = valueSrc.dataOffset + (k * componentCount + c) * 4;
+								if (outputType == 6 && inRange(valueOffset, 4)) // float
+									memcpy(&v, DataBuffer + valueOffset, sizeof(float));
+								values[c] = v;
+							}
+							baseAnim.transformations.push_back(values);
+						}
+
+						parsedAnimations.push_back(std::move(baseAnim));
+					}
+
+					if (!parsedAnimations.empty())
+					{
+						animations.push_back({parsedDuration, parsedAnimations});
+						animationCount++;
+						animationsLoaded = true;
+
+						free(DataBuffer);
+						delete header;
+						delete bdaeFile;
+						delete bdaeArchive;
+						return;
+					}
+				}
+			}
+		}
+	}
 
 	// parse general animation info
 	// one animation entry is a base animation – rotation / scale / translation of one target node
@@ -1298,13 +2455,21 @@ void Model::loadAnimation(const char *fpath)
 
 		if (samplerCount[i] != 1)
 		{
-			LOG("[Error] Model::loadAnimation expected 1 sampler but animation entry [", i + 1, "] has: ", samplerCount[i]);
+			// Many race "anim" files use a different structure than this parser expects.
+			// Skip incompatible files quietly instead of spamming logs.
+			free(DataBuffer);
+			delete header;
+			delete bdaeFile;
+			delete bdaeArchive;
 			return;
 		}
 
 		if (channelCount[i] != 1)
 		{
-			LOG("[Error] Model::loadAnimation expected 1 channel but animation entry [", i + 1, "] has: ", channelCount[i]);
+			free(DataBuffer);
+			delete header;
+			delete bdaeFile;
+			delete bdaeArchive;
 			return;
 		}
 

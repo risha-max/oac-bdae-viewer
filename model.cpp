@@ -14,11 +14,11 @@ void Model::draw(glm::mat4 model, glm::mat4 view, glm::mat4 projection, glm::vec
 
 	if (!isTerrainViewer)
 	{
-		model = glm::mat4(1.0f);
-		model = glm::translate(model, modelCenter); // a trick to build the correct model matrix that rotates the model around its center
-		model = glm::rotate(model, glm::radians(meshPitch), glm::vec3(1, 0, 0));
-		model = glm::rotate(model, glm::radians(meshYaw), glm::vec3(0, 1, 0));
-		model = glm::translate(model, -modelCenter);
+		// Preserve caller-provided world transform (translation/scale), then apply local center-based rotation.
+		model = model * glm::translate(glm::mat4(1.0f), modelCenter);
+		model = model * glm::rotate(glm::mat4(1.0f), glm::radians(meshPitch), glm::vec3(1, 0, 0));
+		model = model * glm::rotate(glm::mat4(1.0f), glm::radians(meshYaw), glm::vec3(0, 1, 0));
+		model = model * glm::translate(glm::mat4(1.0f), -modelCenter);
 	}
 
 	if (animationsLoaded && (animationPlaying || isTerrainViewer)) // [TEST] are there animated models among terrain models?
@@ -49,9 +49,11 @@ void Model::draw(glm::mat4 model, glm::mat4 view, glm::mat4 projection, glm::vec
 	shader.setBool("lighting", lighting);
 	shader.setVec3("cameraPos", cameraPos);
 
+	bool useSkinningThisFrame = hasSkinningData;
+
 	// only for skinned (non-static) models: update total transformation matrix for each bone and send to GPU
 	// (final model matrix calculation for these models is done per vertex on GPU, which is how the skinning works)
-	if (hasSkinningData)
+	if (useSkinningThisFrame)
 	{
 		if (!nodes.empty() && !bindPoseMatrices.empty())
 		{
@@ -77,7 +79,7 @@ void Model::draw(glm::mat4 model, glm::mat4 view, glm::mat4 projection, glm::vec
 		int meshIndex = submeshToMeshIdx[i];
 		submeshModelMatrices[i] = model;
 
-		if (!hasSkinningData)
+		if (!useSkinningThisFrame)
 		{
 			auto it = meshToNodeIdx.find(meshIndex);
 
@@ -89,6 +91,9 @@ void Model::draw(glm::mat4 model, glm::mat4 view, glm::mat4 projection, glm::vec
 		}
 	}
 
+	size_t drawSubmeshCount = std::min<size_t>(submeshModelMatrices.size(), EBOs.size());
+	drawSubmeshCount = std::min<size_t>(drawSubmeshCount, indices.size());
+
 	// render model
 	glBindVertexArray(VAO);
 
@@ -97,9 +102,15 @@ void Model::draw(glm::mat4 model, glm::mat4 view, glm::mat4 projection, glm::vec
 		shader.setInt("renderMode", 1);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-		for (int i = 0; i < totalSubmeshCount; i++)
+		for (int i = 0; i < (int)drawSubmeshCount; i++)
 		{
-			int meshIndex = submeshToMeshIdx[i];
+			auto meshIt = submeshToMeshIdx.find(i);
+			if (meshIt == submeshToMeshIdx.end())
+			{
+				std::cout << "[Warning] Model::draw: skipping submesh [" << i << "] --> missing mesh mapping." << std::endl;
+				continue;
+			}
+			int meshIndex = meshIt->second;
 
 			if (meshIndex < 0)
 			{
@@ -107,15 +118,28 @@ void Model::draw(glm::mat4 model, glm::mat4 view, glm::mat4 projection, glm::vec
 				continue;
 			}
 
+			if (!meshEnabled.empty() && meshIndex < (int)meshEnabled.size() && !meshEnabled[meshIndex])
+				continue;
+
 			shader.setMat4("model", submeshModelMatrices[i]);
 
 			glActiveTexture(GL_TEXTURE0);
 
 			if (alternativeTextureCount > 0 && textureCount == 1)
-				glBindTexture(GL_TEXTURE_2D, textures[selectedTexture]);
+			{
+				if (textures.empty())
+					continue;
+				int texIndex = std::clamp(selectedTexture, 0, (int)textures.size() - 1);
+				glBindTexture(GL_TEXTURE_2D, textures[texIndex]);
+			}
 			else if (textureCount > 1)
 			{
-				if (submeshTextureIndex[i] == -1)
+				if (i >= (int)submeshTextureIndex.size())
+				{
+					std::cout << "[Warning] Model::draw: skipping submesh [" << i << "] --> missing submesh texture mapping." << std::endl;
+					continue;
+				}
+				if (submeshTextureIndex[i] < 0 || submeshTextureIndex[i] >= (int)textures.size())
 				{
 					std::cout << "[Warning] Model::draw: skipping submesh [" << i << "] --> invalid texture index [" << submeshTextureIndex[i] << "]" << std::endl;
 					continue;
@@ -124,7 +148,11 @@ void Model::draw(glm::mat4 model, glm::mat4 view, glm::mat4 projection, glm::vec
 				glBindTexture(GL_TEXTURE_2D, textures[submeshTextureIndex[i]]);
 			}
 			else
+			{
+				if (textures.empty())
+					continue;
 				glBindTexture(GL_TEXTURE_2D, textures[0]);
+			}
 
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBOs[i]);
 			glDrawElements(GL_TRIANGLES, indices[i].size(), GL_UNSIGNED_SHORT, 0);
@@ -136,8 +164,15 @@ void Model::draw(glm::mat4 model, glm::mat4 view, glm::mat4 projection, glm::vec
 		shader.setInt("renderMode", 2);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-		for (int i = 0; i < totalSubmeshCount; i++)
+		for (int i = 0; i < (int)drawSubmeshCount; i++)
 		{
+			auto meshIt = submeshToMeshIdx.find(i);
+			if (meshIt == submeshToMeshIdx.end())
+				continue;
+			int meshIndex = meshIt->second;
+			if (!meshEnabled.empty() && meshIndex >= 0 && meshIndex < (int)meshEnabled.size() && !meshEnabled[meshIndex])
+				continue;
+
 			shader.setMat4("model", submeshModelMatrices[i]);
 
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBOs[i]);
@@ -148,8 +183,15 @@ void Model::draw(glm::mat4 model, glm::mat4 view, glm::mat4 projection, glm::vec
 		shader.setInt("renderMode", 3);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-		for (int i = 0; i < totalSubmeshCount; i++)
+		for (int i = 0; i < (int)drawSubmeshCount; i++)
 		{
+			auto meshIt = submeshToMeshIdx.find(i);
+			if (meshIt == submeshToMeshIdx.end())
+				continue;
+			int meshIndex = meshIt->second;
+			if (!meshEnabled.empty() && meshIndex >= 0 && meshIndex < (int)meshEnabled.size() && !meshEnabled[meshIndex])
+				continue;
+
 			shader.setMat4("model", submeshModelMatrices[i]);
 
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBOs[i]);
@@ -357,6 +399,9 @@ void Model::reset()
 	vertexCount = faceCount = 0;
 	totalSubmeshCount = 0;
 	submeshToMeshIdx.clear();
+	meshNames.clear();
+	meshEnabled.clear();
+	useHumanoidVariantFilter = false;
 
 	if (!textures.empty())
 	{
@@ -383,8 +428,10 @@ void Model::reset()
 	boneTotalTransforms.clear();
 	boneNameToNodeIdx.clear();
 	hasSkinningData = false;
+	preferNonSkinnedWhenIdle = false;
 
 	animations.clear();
+	animationNames.clear();
 	currentAnimationTime = 0.0f;
 	selectedAnimation = 0;
 	animationCount = 0;
@@ -392,4 +439,6 @@ void Model::reset()
 	animationsLoaded = false;
 
 	sounds.clear();
+	effectPresets.clear();
+	selectedEffectPreset = 0;
 }

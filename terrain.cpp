@@ -1,5 +1,8 @@
 #include "terrain.h"
 #include <filesystem>
+#include <unordered_map>
+#include <unordered_set>
+#include <climits>
 #include "libs/stb_image.h"
 #include "libs/glm/glm.hpp"
 #include "libs/glm/fwd.hpp"
@@ -11,10 +14,171 @@
 #include "parserTRN.h"
 #include "parserITM.h"
 
+#ifndef GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG
+#define GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG 0x8C00
+#endif
+#ifndef GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG
+#define GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG 0x8C01
+#endif
+#ifndef GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG
+#define GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG 0x8C02
+#endif
+#ifndef GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG
+#define GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG 0x8C03
+#endif
+
+namespace
+{
+std::string toLowerAscii(std::string value)
+{
+	for (char &c : value)
+		c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+	return value;
+}
+
+std::unordered_map<std::string, std::string> g_terrainTextureByFilename;
+bool g_terrainTextureIndexInitialized = false;
+
+void buildTerrainTextureIndex()
+{
+	if (g_terrainTextureIndexInitialized)
+		return;
+
+	g_terrainTextureIndexInitialized = true;
+	const std::vector<std::string> roots = {"data/texture_converted", "data/texture", "data/texture2g"};
+
+	for (const std::string &root : roots)
+	{
+		if (!std::filesystem::exists(root))
+			continue;
+
+		for (const std::filesystem::directory_entry &entry : std::filesystem::recursive_directory_iterator(root))
+		{
+			if (!entry.is_regular_file())
+				continue;
+
+			std::string key = toLowerAscii(entry.path().filename().string());
+			if (!key.empty() && g_terrainTextureByFilename.find(key) == g_terrainTextureByFilename.end())
+				g_terrainTextureByFilename[key] = entry.path().string();
+		}
+	}
+}
+
+std::string findTerrainTextureByFilename(const std::string &filename)
+{
+	buildTerrainTextureIndex();
+
+	auto it = g_terrainTextureByFilename.find(toLowerAscii(filename));
+	if (it != g_terrainTextureByFilename.end())
+		return it->second;
+
+	return "";
+}
+
+float pointSegmentDistanceXZ(const glm::vec2 &p, const glm::vec2 &a, const glm::vec2 &b)
+{
+	glm::vec2 ab = b - a;
+	float denom = glm::dot(ab, ab);
+	if (denom <= 1e-6f)
+		return glm::length(p - a);
+	float t = glm::clamp(glm::dot(p - a, ab) / denom, 0.0f, 1.0f);
+	glm::vec2 c = a + ab * t;
+	return glm::length(p - c);
+}
+
+struct PVRv2Header
+{
+	uint32_t headerSize;
+	uint32_t height;
+	uint32_t width;
+	uint32_t mipMapCount;
+	uint32_t flags;
+	uint32_t dataLength;
+	uint32_t bpp;
+	uint32_t bitmaskRed;
+	uint32_t bitmaskGreen;
+	uint32_t bitmaskBlue;
+	uint32_t bitmaskAlpha;
+	uint32_t pvrTag;
+	uint32_t numSurfaces;
+};
+
+bool uploadPVRv2Texture(const std::string &texturePath)
+{
+	FILE *f = fopen(texturePath.c_str(), "rb");
+	if (!f)
+		return false;
+
+	fseek(f, 0, SEEK_END);
+	long fileSize = ftell(f);
+	fseek(f, 0, SEEK_SET);
+
+	if (fileSize <= (long)sizeof(PVRv2Header))
+	{
+		fclose(f);
+		return false;
+	}
+
+	std::vector<unsigned char> bytes((size_t)fileSize);
+	if (fread(bytes.data(), 1, (size_t)fileSize, f) != (size_t)fileSize)
+	{
+		fclose(f);
+		return false;
+	}
+	fclose(f);
+
+	const PVRv2Header *hdr = reinterpret_cast<const PVRv2Header *>(bytes.data());
+	if (hdr->pvrTag != 0x21525650 || hdr->headerSize < sizeof(PVRv2Header))
+		return false;
+
+	const uint32_t format = hdr->flags & 0xFFu; // legacy PVR pixel type
+	const bool hasAlpha = hdr->bitmaskAlpha != 0;
+
+	GLenum internalFormat = 0;
+	if (format == 24) // PVRTC 2bpp
+		internalFormat = hasAlpha ? GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG : GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG;
+	else if (format == 25) // PVRTC 4bpp
+		internalFormat = hasAlpha ? GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG : GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG;
+	else
+		return false;
+
+	uint32_t width = hdr->width;
+	uint32_t height = hdr->height;
+	size_t offset = hdr->headerSize;
+	int level = 0;
+	const bool is2Bpp = (format == 24);
+
+	while (offset < bytes.size() && width > 0 && height > 0)
+	{
+		// PVRTC block sizing rules.
+		uint32_t minWidth = is2Bpp ? 16u : 8u;
+		uint32_t minHeight = 8u;
+		uint32_t srcWidth = std::max(width, minWidth);
+		uint32_t srcHeight = std::max(height, minHeight);
+		uint32_t levelSize = (srcWidth * srcHeight * (is2Bpp ? 2u : 4u)) / 8u;
+		if (levelSize == 0 || offset + levelSize > bytes.size())
+			break;
+
+		glCompressedTexImage2D(GL_TEXTURE_2D, level, internalFormat, (GLsizei)width, (GLsizei)height, 0, (GLsizei)levelSize, bytes.data() + offset);
+		GLenum err = glGetError();
+		if (err != GL_NO_ERROR)
+			return false;
+
+		offset += levelSize;
+		width = std::max(1u, width / 2u);
+		height = std::max(1u, height / 2u);
+		level++;
+	}
+
+	return level > 0;
+}
+} // namespace
+
 //! CPU-side map loading (called once on map startup, pre-loads all tiles for selected map): opens resource archives, calls parsers for each asset type and each map's tile, then builds vertex and index data.
 void Terrain::load(const char *fpath, Sound &sound)
 {
 	reset();
+	fileName = std::filesystem::path(fpath).filename().string();
 
 	// open map's resource archives (de-facto ZIP archives but formally named with the same file extension as the assets they contain)
 	CZipResReader *terrainArchive = new CZipResReader(fpath, true, false);
@@ -40,7 +204,8 @@ void Terrain::load(const char *fpath, Sound &sound)
 	std::vector<tmp_TileTerrain> tmp_tiles;
 
 	// loop through each tile in the terrain (it is equal to the number of .trn files in the terrain archive)
-	for (int i = 0, n = terrainArchive->getFileCount(); i < n; i++)
+	int terrainFileCount = terrainArchive ? terrainArchive->getFileCount() : 0;
+	for (int i = 0, n = terrainFileCount; i < n; i++)
 	{
 		IReadResFile *trnFile = terrainArchive->openFile(i); // open i-th .trn file inside the archive and return memory-read file object with the decompressed content
 
@@ -86,6 +251,13 @@ void Terrain::load(const char *fpath, Sound &sound)
 	if (physicsArchive)
 		delete physicsArchive;
 
+	if (tmp_tiles.empty())
+	{
+		std::cerr << "[Error] Terrain load failed: no valid tiles were parsed from '" << fpath << "'.\n";
+		terrainLoaded = false;
+		return;
+	}
+
 	/* initialize Class variables inside the Terrain object
 		– terrain borders
 		– terrain size
@@ -101,6 +273,17 @@ void Terrain::load(const char *fpath, Sound &sound)
 	// (basically 1D temp tmp_tiles vector is converted into a 2D array)
 	tilesX = (tileMaxX - tileMinX) + 1; // number of tiles in X direction
 	tilesZ = (tileMaxZ - tileMinZ) + 1; // number of tiles in Z direction
+
+	if (tilesX <= 0 || tilesZ <= 0 || tilesX > 2048 || tilesZ > 2048)
+	{
+		std::cerr << "[Error] Terrain load failed: invalid tile bounds for '" << fpath
+				  << "' (tilesX=" << tilesX << ", tilesZ=" << tilesZ << ").\n";
+		for (const tmp_TileTerrain &t : tmp_tiles)
+			delete t.tileData;
+		tmp_tiles.clear();
+		terrainLoaded = false;
+		return;
+	}
 
 	tiles.assign(tilesX, std::vector<TileTerrain *>(tilesZ, NULL)); // resize to terrain dimensions
 
@@ -192,12 +375,23 @@ void Terrain::load(const char *fpath, Sound &sound)
 		camera.Pitch = pitch;
 		camera.Yaw = yaw;
 	}
+	else
+	{
+		// Fallback spawn for maps without a handcrafted preset.
+		// Place camera near terrain center, slightly elevated and offset on Z.
+		float centerX = 0.5f * (minX + maxX);
+		float centerZ = 0.5f * (minZ + maxZ);
+		camera.Position = glm::vec3(centerX, 80.0f, centerZ + 120.0f);
+		camera.Pitch = -15.0f;
+		camera.Yaw = -90.0f;
+	}
 
 	camera.updateCameraVectors();
 
 	// set file info to be displayed in the settings panel
-	fileName = std::filesystem::path(fpath).filename().string();
-	fileSize = std::filesystem::file_size(fpath);
+	std::error_code fsErr;
+	uintmax_t fileSizeU = std::filesystem::file_size(fpath, fsErr);
+	fileSize = fsErr ? 0 : (int)std::min<uintmax_t>(fileSizeU, (uintmax_t)INT_MAX);
 	vertexCount = 0; // [TODO] compute for the entire terrain
 	faceCount = 0;
 
@@ -365,26 +559,136 @@ void Terrain::getTerrainVertices()
 
 	for (int i = 0; i < terrainTextureCount; i++)
 	{
-		// adjust texture path: fix slashes, insert 'unsorted/' after 'texture/', and prepend 'data/'
-		std::string textureName = uniqueTextureNames[i];
-		std::replace(textureName.begin(), textureName.end(), '\\', '/');
+		// Resolve terrain texture path robustly across texture/texture2g, sorted/unsorted, and png/tga variants.
+		std::string sourceName = uniqueTextureNames[i];
+		std::replace(sourceName.begin(), sourceName.end(), '\\', '/');
 
-		auto pos = textureName.find("texture/");
+		auto toLower = [](std::string v)
+		{
+			for (char &c : v)
+				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			return v;
+		};
 
-		if (pos != std::string::npos)
-			textureName.insert(pos + 8, "unsorted/");
+		std::vector<std::string> candidates;
+		std::unordered_set<std::string> seen;
+		auto addCandidate = [&](const std::string &path)
+		{
+			std::string key = toLower(path);
+			if (!path.empty() && seen.insert(key).second)
+				candidates.push_back(path);
+		};
 
-		textureName = "data/" + textureName;
+		auto asConverted = [](const std::string &path)
+		{
+			const std::string texturePrefix = "data/texture/";
+			const std::string texture2gPrefix = "data/texture2g/";
+			std::filesystem::path p(path);
+			if (path.rfind(texturePrefix, 0) == 0)
+				p = std::filesystem::path("data/texture_converted") / path.substr(texturePrefix.size());
+			else if (path.rfind(texture2gPrefix, 0) == 0)
+				p = std::filesystem::path("data/texture_converted") / path.substr(texture2gPrefix.size());
+			p.replace_extension(".png");
+			return p.string();
+		};
+
+		// Canonical source path from .trn metadata.
+		std::string basePath = "data/" + sourceName;
+		addCandidate(asConverted(basePath));
+		addCandidate(basePath);
+
+		// Historical fallback used by this viewer: force unsorted under texture/.
+		std::string unsortedPath = basePath;
+		auto texPos = unsortedPath.find("data/texture/");
+		if (texPos != std::string::npos)
+			unsortedPath.insert(texPos + 13, "unsorted/");
+		addCandidate(asConverted(unsortedPath));
+		addCandidate(unsortedPath);
+
+		// texture2g mirrors often hold the actual terrain files.
+		auto asTexture2g = [](const std::string &path)
+		{
+			const std::string prefix = "data/texture/";
+			if (path.rfind(prefix, 0) == 0)
+				return std::string("data/texture2g/") + path.substr(prefix.size());
+			return path;
+		};
+		std::string texture2gBasePath = asTexture2g(basePath);
+		std::string texture2gUnsortedPath = asTexture2g(unsortedPath);
+		addCandidate(asConverted(texture2gBasePath));
+		addCandidate(asConverted(texture2gUnsortedPath));
+		addCandidate(texture2gBasePath);
+		addCandidate(texture2gUnsortedPath);
+
+		// Generate extension variants for each path (.png/.tga/.dds).
+		int initialCount = (int)candidates.size();
+		for (int c = 0; c < initialCount; c++)
+		{
+			std::filesystem::path p(candidates[c]);
+			std::string ext = toLower(p.extension().string());
+			if (ext != ".png" && ext != ".tga" && ext != ".dds")
+				continue;
+			p.replace_extension(".png");
+			addCandidate(p.string());
+			p.replace_extension(".tga");
+			addCandidate(p.string());
+			p.replace_extension(".dds");
+			addCandidate(p.string());
+		}
+
+		// Final fallback: locate by basename anywhere in texture roots.
+		std::filesystem::path sourcePath(sourceName);
+		std::string filenameOnly = sourcePath.filename().string();
+		std::string stem = sourcePath.stem().string();
+		addCandidate(findTerrainTextureByFilename(filenameOnly));
+		addCandidate(findTerrainTextureByFilename(stem + ".tga"));
+		addCandidate(findTerrainTextureByFilename(stem + ".png"));
+		addCandidate(findTerrainTextureByFilename(stem + ".dds"));
 
 		// load texture as RGBA (4 channels)
 		int width = 0, height = 0, nrChannels = 0;
-		unsigned char *data = stbi_load(textureName.c_str(), &width, &height, &nrChannels, 4);
+		unsigned char *data = NULL;
+		std::string resolvedTextureName = candidates.empty() ? basePath : candidates[0];
+
+		for (int c = 0; c < (int)candidates.size(); c++)
+		{
+			if (!std::filesystem::exists(candidates[c]))
+				continue;
+
+			data = stbi_load(candidates[c].c_str(), &width, &height, &nrChannels, 4);
+			if (data)
+			{
+				resolvedTextureName = candidates[c];
+				break;
+			}
+		}
 
 		if (!data) // load failed — use 256 x 256 white fallback
 		{
-			std::cout << "[Warning] Failed to load texture: " << textureName << "\n"
-					  << "          Using fallback white 256x256 texture." << std::endl;
-			trnTextures[i] = alloc_white_256();
+			// Some OaC terrain textures are PVR containers mislabeled as .tga.
+			// Try uploading from any existing candidate path before falling back.
+			bool uploadedPVR = false;
+			for (int c = 0; c < (int)candidates.size(); c++)
+			{
+				if (!std::filesystem::exists(candidates[c]))
+					continue;
+				if (uploadPVRv2Texture(candidates[c]))
+				{
+					uploadedPVR = true;
+					break;
+				}
+			}
+
+			if (uploadedPVR)
+			{
+				continue;
+			}
+			else
+			{
+				std::cout << "[Warning] Failed to load texture: " << resolvedTextureName << "\n"
+						  << "          Using fallback white 256x256 texture." << std::endl;
+				trnTextures[i] = alloc_white_256();
+			}
 		}
 		else if (width != TERRAIN_TEXTURE_RESOLUTION || height != TERRAIN_TEXTURE_RESOLUTION) // load success but resolution mismatch — resize to 256 x 256
 		{
@@ -393,12 +697,12 @@ void Terrain::getTerrainVertices()
 
 			if (resized) // resize success
 			{
-				std::cout << "[Info] Resized texture " << textureName << " from " << width << "x" << height << " to " << TERRAIN_TEXTURE_RESOLUTION << "x" << TERRAIN_TEXTURE_RESOLUTION << "." << std::endl;
+				std::cout << "[Info] Resized texture " << resolvedTextureName << " from " << width << "x" << height << " to " << TERRAIN_TEXTURE_RESOLUTION << "x" << TERRAIN_TEXTURE_RESOLUTION << "." << std::endl;
 				trnTextures[i] = resized;
 			}
 			else // resize failed — use 256 x 256 white fallback
 			{
-				std::cout << "[Warning] Failed to resize texture: " << textureName << std::endl;
+				std::cout << "[Warning] Failed to resize texture: " << resolvedTextureName << std::endl;
 				trnTextures[i] = alloc_white_256();
 			}
 		}
@@ -1401,6 +1705,109 @@ void Terrain::updateVisibleTiles(glm::mat4 view, glm::mat4 projection)
 				tilesVisible.push_back(tile);
 		}
 	}
+}
+
+float Terrain::sampleHeightAt(float x, float z) const
+{
+	if (!terrainLoaded || tiles.empty())
+		return 0.0f;
+
+	int tileX = (int)std::floor(x / UnitsInTileRow) - tileMinX;
+	int tileZ = (int)std::floor(z / UnitsInTileCol) - tileMinZ;
+	tileX = std::max(0, std::min(tileX, tilesX - 1));
+	tileZ = std::max(0, std::min(tileZ, tilesZ - 1));
+
+	TileTerrain *tile = tiles[tileX][tileZ];
+	if (!tile)
+		return 0.0f;
+
+	float localX = x - tile->startX;
+	float localZ = z - tile->startZ;
+	localX = std::max(0.0f, std::min(localX, (float)UnitsInTileRow));
+	localZ = std::max(0.0f, std::min(localZ, (float)UnitsInTileCol));
+
+	int ix = (int)std::floor(localX);
+	int iz = (int)std::floor(localZ);
+	int ix1 = std::min(ix + 1, UnitsInTileRow);
+	int iz1 = std::min(iz + 1, UnitsInTileCol);
+
+	float tx = localX - (float)ix;
+	float tz = localZ - (float)iz;
+
+	float h00 = tile->Y[iz][ix];
+	float h10 = tile->Y[iz][ix1];
+	float h01 = tile->Y[iz1][ix];
+	float h11 = tile->Y[iz1][ix1];
+
+	float hx0 = h00 * (1.0f - tx) + h10 * tx;
+	float hx1 = h01 * (1.0f - tx) + h11 * tx;
+	return hx0 * (1.0f - tz) + hx1 * tz;
+}
+
+bool Terrain::collidesWithPhysics(float x, float y, float z, float radius, float halfHeight) const
+{
+	if (!terrainLoaded || tiles.empty())
+		return false;
+
+	int centerTileX = (int)std::floor(x / UnitsInTileRow) - tileMinX;
+	int centerTileZ = (int)std::floor(z / UnitsInTileCol) - tileMinZ;
+	int x0 = std::max(0, centerTileX - 1);
+	int x1 = std::min(tilesX - 1, centerTileX + 1);
+	int z0 = std::max(0, centerTileZ - 1);
+	int z1 = std::min(tilesZ - 1, centerTileZ + 1);
+
+	const float bottom = y - halfHeight;
+	const float top = y + halfHeight;
+	const glm::vec2 p(x, z);
+
+	for (int tx = x0; tx <= x1; tx++)
+	{
+		for (int tz = z0; tz <= z1; tz++)
+		{
+			TileTerrain *tile = tiles[tx][tz];
+			if (!tile || tile->physicsVertices.size() < 9)
+				continue;
+
+			const std::vector<float> &pv = tile->physicsVertices;
+			for (size_t i = 0; i + 8 < pv.size(); i += 9)
+			{
+				glm::vec3 a(pv[i + 0], pv[i + 1], pv[i + 2]);
+				glm::vec3 b(pv[i + 3], pv[i + 4], pv[i + 5]);
+				glm::vec3 c(pv[i + 6], pv[i + 7], pv[i + 8]);
+
+				glm::vec3 n = glm::cross(b - a, c - a);
+				float nlen = glm::length(n);
+				if (nlen <= 1e-5f)
+					continue;
+				n /= nlen;
+
+				// Treat mostly-vertical faces as blocking walls; ignore floor/ceil triangles.
+				if (std::fabs(n.y) > 0.35f)
+					continue;
+
+				float minX = std::min(a.x, std::min(b.x, c.x)) - radius;
+				float maxX = std::max(a.x, std::max(b.x, c.x)) + radius;
+				float minZ = std::min(a.z, std::min(b.z, c.z)) - radius;
+				float maxZ = std::max(a.z, std::max(b.z, c.z)) + radius;
+				if (x < minX || x > maxX || z < minZ || z > maxZ)
+					continue;
+
+				float minY = std::min(a.y, std::min(b.y, c.y));
+				float maxY = std::max(a.y, std::max(b.y, c.y));
+				if (top < minY || bottom > maxY)
+					continue;
+
+				float d0 = pointSegmentDistanceXZ(p, glm::vec2(a.x, a.z), glm::vec2(b.x, b.z));
+				float d1 = pointSegmentDistanceXZ(p, glm::vec2(b.x, b.z), glm::vec2(c.x, c.z));
+				float d2 = pointSegmentDistanceXZ(p, glm::vec2(c.x, c.z), glm::vec2(a.x, a.z));
+				float dist = std::min(d0, std::min(d1, d2));
+				if (dist <= radius)
+					return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 //! Clears CPU memory (resets viewer state).

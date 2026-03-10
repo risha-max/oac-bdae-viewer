@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <algorithm>
 #include "libs/imgui/imgui.h"
 #include "libs/miniaudio.h" // library for audio playback
 
@@ -30,8 +31,62 @@ class Sound
 	void searchSoundFiles(std::string fname, std::vector<std::string> &sounds)
 	{
 		selectedSound = 0;
+		sounds.clear();
 
 		std::string baseFileName = std::filesystem::path(fname).stem().string();
+		std::string lowered = fname;
+		std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+
+		auto addIfExists = [&](const std::string &fileName)
+		{
+			std::filesystem::path p = soundPath / fileName;
+			if (!std::filesystem::exists(p))
+				return;
+
+			std::string full = p.string();
+			if (std::find(sounds.begin(), sounds.end(), full) == sounds.end())
+				sounds.push_back(full);
+		};
+
+		// Weapon-aware presets: attach useful hit/swing sounds by weapon category.
+		if (lowered.find("/item/weapon/") != std::string::npos)
+		{
+			auto addByPrefix = [&](const std::string &prefix)
+			{
+				for (const std::filesystem::directory_entry &entry : std::filesystem::directory_iterator(soundPath))
+				{
+					if (!entry.is_regular_file())
+						continue;
+
+					std::filesystem::path entryPath = entry.path();
+					if (entryPath.extension() != ".wav")
+						continue;
+
+					std::string name = entryPath.filename().string();
+					if (name.rfind(prefix, 0) == 0)
+						addIfExists(name);
+				}
+			};
+
+			if (lowered.find("dagger") != std::string::npos || lowered.find("dirk") != std::string::npos)
+				addByPrefix("sfx_weapon_dagger_");
+			else if (lowered.find("fist") != std::string::npos || lowered.find("gloves") != std::string::npos)
+				addByPrefix("sfx_weapon_fist_");
+			else if (lowered.find("bow") != std::string::npos || lowered.find("crossbow") != std::string::npos || lowered.find("arrow") != std::string::npos)
+				addByPrefix("sfx_weapon_arrow_");
+			else if (lowered.find("shield") != std::string::npos)
+			{
+				addByPrefix("sfx_weapon_wood_block_");
+				addByPrefix("sfx_weapon_parry_");
+				addIfExists("sfx_shield_swoosh_1.wav");
+			}
+			else if (lowered.find("staff") != std::string::npos || lowered.find("axe") != std::string::npos || lowered.find("hammer") != std::string::npos || lowered.find("mace") != std::string::npos)
+				addByPrefix("sfx_weapon_blunt_");
+			else
+				addByPrefix("sfx_weapon_edge_");
+
+			addByPrefix("sfx_weapon_parry_");
+		}
 
 		for (const std::filesystem::directory_entry &entry : std::filesystem::directory_iterator(soundPath))
 		{
@@ -47,7 +102,9 @@ class Sound
 			if (entryPath.stem().string().find(baseFileName) == std::string::npos)
 				continue;
 
-			sounds.push_back(soundPath.string() + entryPath.filename().string());
+			std::string full = (soundPath / entryPath.filename()).string();
+			if (std::find(sounds.begin(), sounds.end(), full) == sounds.end())
+				sounds.push_back(full);
 		}
 	}
 

@@ -1,0 +1,102 @@
+{
+  "file": "oac1osp/data/Effects/equipment/weapon/two_hand/two_hand_staff/staff_07_red.beff",
+  "size": 1280,
+  "header": {
+    "signature": "beff",
+    "format_version": 8,
+    "delay_time_min": 0,
+    "delay_time_max": 0,
+    "nodes_count": 2
+  },
+  "nodes": [
+    {
+      "type": 0,
+      "name": "Emitter",
+      "summary": {
+        "parent_node": "",
+        "sub_emitters": 0,
+        "emitter_type": 0,
+        "emit_time": -1,
+        "emit_start_time": 0,
+        "interval": 6,
+        "interval_random": 0,
+        "particle_type": 1,
+        "life_time": 30,
+        "life_time_random": 0,
+        "size_random": 0,
+        "texture": "ball_light4.tga",
+        "base_size_x_keys": [
+          {
+            "frame": 0,
+            "data": 0.699999988079071
+          }
+        ],
+        "base_size_y_keys": [
+          {
+            "frame": 0,
+            "data": 0.699999988079071
+          }
+        ],
+        "speed_all_keys": [
+          {
+            "frame": 0,
+            "data": 0.0
+          }
+        ],
+        "speed_spe_keys": [
+          {
+            "frame": 0,
+            "data": 0.0
+          }
+        ],
+        "affector_count": 0
+      }
+    },
+    {
+      "type": 0,
+      "name": "Emitter",
+      "summary": {
+        "parent_node": "",
+        "sub_emitters": 0,
+        "emitter_type": 0,
+        "emit_time": -1,
+        "emit_start_time": 0,
+        "interval": 3,
+        "interval_random": 0,
+        "particle_type": 0,
+        "life_time": 30,
+        "life_time_random": 0,
+        "size_random": 0,
+        "texture": "fire06.tga",
+        "base_size_x_keys": [
+          {
+            "frame": 0,
+            "data": 0.699999988079071
+          }
+        ],
+        "base_size_y_keys": [
+          {
+            "frame": 0,
+            "data": 0.699999988079071
+          }
+        ],
+        "speed_all_keys": [
+          {
+            "frame": 0,
+            "data": 0.0
+          }
+        ],
+        "speed_spe_keys": [
+          {
+            "frame": 0,
+            "data": 0.0
+          }
+        ],
+        "affector_count": 0
+      }
+    }
+  ],
+  "end_offset": 1280,
+  "remaining_bytes": 0,
+  "parse_ok": true
+}

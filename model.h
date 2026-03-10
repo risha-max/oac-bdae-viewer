@@ -119,6 +119,10 @@ class Model
 	std::vector<std::vector<unsigned short>> indices; // index data for each submesh (triangles)
 	std::vector<unsigned int> textures;				  // texture ID(s)
 	std::vector<std::string> sounds;				  // sound file name(s)
+	std::vector<std::string> effectPresets;		  // discovered .beff presets relevant to current model
+	int selectedEffectPreset;
+	std::vector<std::string> meshNames;			  // mesh names parsed from .bdae
+	std::vector<bool> meshEnabled;					  // per-mesh visibility toggle (used for humanoid variant filtering)
 
 	glm::vec3 modelCenter; // geometric center of the model
 
@@ -126,6 +130,7 @@ class Model
 	float meshYaw = 0.0f;
 
 	bool modelLoaded;
+	bool useHumanoidVariantFilter;
 
 	char *DataBuffer; // raw binary content of .bdae file
 
@@ -135,6 +140,7 @@ class Model
 
 	// skinning data
 	bool hasSkinningData;
+	bool preferNonSkinnedWhenIdle;
 	std::vector<std::string> boneNames;
 	glm::mat4 bindShapeMatrix;					// correction matrix that transforms all model vertices from their raw positions defined in the .bdae file (mesh local space) to skeleton (or "bind pose") space (coordinate system where the skeleton was defined)
 	std::vector<glm::mat4> bindPoseMatrices;	// inverse bind pose matrix for each bone; transforms vertices from their bind positions in skeleton space to the bone's local space
@@ -142,6 +148,7 @@ class Model
 
 	// animation data
 	std::vector<std::pair<float, std::vector<BaseAnimation>>> animations; // all loaded animation files data; for each file: {duration, set of base animations}
+	std::vector<std::string> animationNames;							   // display names of loaded animation clips
 	bool animationsLoaded;												  // whether at least one animation file is loaded
 	bool animationPlaying;												  // whether animation is playing
 	int animationCount;													  // number of animation files found
@@ -168,8 +175,11 @@ class Model
 		  textureCount(0),
 		  alternativeTextureCount(0),
 		  selectedTexture(0),
+		  selectedEffectPreset(0),
 		  hasSkinningData(false),
+		  preferNonSkinnedWhenIdle(false),
 		  modelLoaded(false),
+		  useHumanoidVariantFilter(false),
 		  animationsLoaded(false),
 		  animationPlaying(false),
 		  animationCount(0),

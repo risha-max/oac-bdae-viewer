@@ -93,6 +93,12 @@ class Terrain
 	//! Computes which tiles will be rendered in the current frame based on camera position and orientation (distance-based culling + frustum culling).
 	void updateVisibleTiles(glm::mat4 view, glm::mat4 projection);
 
+	//! Samples terrain surface height from TRN height map at world-space position.
+	float sampleHeightAt(float x, float z) const;
+
+	//! Checks capsule-vs-static physics collision around world-space position.
+	bool collidesWithPhysics(float x, float y, float z, float radius, float halfHeight) const;
+
 	//! Clears CPU memory (resets viewer state).
 	void reset();
 
