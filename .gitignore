@@ -1,7 +1,9 @@
 .*
 
 app
+data
 data/
+oac1osp
 oac1osp/
 oac1osp*.7z
 tools/
